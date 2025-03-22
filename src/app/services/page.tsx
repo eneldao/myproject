@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { supabase } from '@/lib/supabase';
 
 const ServiceCard = ({ title, description, image, link }: {
   title: string;
@@ -43,6 +44,32 @@ const ServiceCard = ({ title, description, image, link }: {
 };
 
 const ServicesPage = () => {
+  const [dbStatus, setDbStatus] = useState<string>('');
+
+  useEffect(() => {
+    async function checkConnection() {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('count')
+          .single();
+
+        if (error) {
+          console.error('Database connection error:', error);
+          setDbStatus('Error connecting to database');
+        } else {
+          console.log('Database connected successfully');
+          setDbStatus('Database connected');
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        setDbStatus('Error checking database connection');
+      }
+    }
+
+    checkConnection();
+  }, []);
+
   const services = [
     {
       title: "Voice-over",
@@ -68,6 +95,10 @@ const ServicesPage = () => {
     <div className="min-h-screen bg-gradient-to-r from-[#001F3F] to-[#003366] py-20">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Hidden debug info */}
+        <div style={{ display: 'none' }}>
+          Database Status: {dbStatus}
+        </div>
         <div className="text-center mb-16">
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-4">Our Services</h1>
           <p className="text-lg text-gray-300">Professional audio services tailored to your needs</p>
