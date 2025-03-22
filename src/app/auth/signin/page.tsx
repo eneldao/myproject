@@ -1,26 +1,26 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SignIn() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { signIn, error } = useAuth();
+  const { login, isAuthenticated } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
-      await signIn(email, password);
-      router.push('/dashboard'); // Redirect to dashboard after successful login
+      login();
+      router.push("/dashboard"); // Redirect to dashboard after successful login
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error("Sign in error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -70,9 +70,9 @@ export default function SignIn() {
             </div>
           </div>
 
-          {error && (
+          {!isAuthenticated && (
             <div className="text-red-500 text-sm text-center">
-              {error}
+              Authentication failed
             </div>
           )}
 
@@ -82,17 +82,20 @@ export default function SignIn() {
               disabled={isLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-[#00BFFF] hover:bg-[#0099CC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BFFF] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Signing in...' : 'Sign in'}
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </div>
         </form>
 
         <div className="text-center text-sm text-gray-300">
-          <Link href="/auth/signup" className="font-medium text-[#00BFFF] hover:text-[#0099CC]">
+          <Link
+            href="/auth/signup"
+            className="font-medium text-[#00BFFF] hover:text-[#0099CC]"
+          >
             Don&apos;t have an account? Sign up
           </Link>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { supabase } from "@/lib/supabase";
 
 type BaseFormData = {
   fullName: string;
@@ -28,47 +29,102 @@ type FormData = FreelancerFormData | ClientFormData;
 
 const Register = () => {
   const searchParams = useSearchParams();
-  const type = searchParams.get('type') || 'freelancer';
-  
+  const router = useRouter();
+  const type = searchParams.get("type") || "freelancer";
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState<FormData>({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    ...(type === 'freelancer' ? {
-      skills: '',
-      experience: '',
-      hourlyRate: '',
-      services: []
-    } : {
-      companyName: '',
-      industry: ''
-    })
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    ...(type === "freelancer"
+      ? {
+          skills: "",
+          experience: "",
+          hourlyRate: "",
+          services: [],
+        }
+      : {
+          companyName: "",
+          industry: "",
+        }),
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement registration logic
-    console.log('Form submitted:', formData);
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Basic validation
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+
+      if (formData.password.length < 6) {
+        throw new Error("Password must be at least 6 characters long");
+      }
+
+      // Log attempt (for debugging)
+      console.log("Attempting to register with:", {
+        email: formData.email,
+        password: "***",
+        type,
+      });
+
+      // Direct Supabase auth signup - simplify this first step
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            user_type: type,
+          },
+        },
+      });
+
+      if (signUpError) {
+        console.error("Supabase signup error:", signUpError);
+        throw new Error(signUpError.message);
+      }
+
+      if (!data?.user) {
+        throw new Error("Registration failed - no user returned");
+      }
+
+      // Success - just redirect for now
+      console.log("Registration successful:", data.user);
+      router.push("/auth/login?registered=true");
+
+      // Note: In a complete implementation, you'd add the profile data here
+      // But let's first make sure the basic signup works
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      setError(err.message || "An error occurred during registration");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    if (type === 'checkbox' && 'services' in formData) {
-      const checkbox = e.target as HTMLInputElement;
-      const services = [...formData.services];
-      if (checkbox.checked) {
-        services.push(value);
-      } else {
-        const index = services.indexOf(value);
-        if (index > -1) {
-          services.splice(index, 1);
-        }
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value, type, checked } = e.target as HTMLInputElement;
+
+    setFormData((prev) => {
+      if (type === "checkbox" && "services" in prev) {
+        const services = checked
+          ? [...prev.services, value]
+          : prev.services.filter((s) => s !== value);
+        return { ...prev, services } as FormData;
       }
-      setFormData(prev => ({ ...prev, services } as FormData));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value } as FormData));
-    }
+      return { ...prev, [name]: value } as FormData;
+    });
   };
 
   return (
@@ -94,9 +150,18 @@ const Register = () => {
           </h2>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded text-white">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-gray-300">
+            <label
+              htmlFor="fullName"
+              className="block text-sm font-medium text-gray-300"
+            >
               Full Name
             </label>
             <input
@@ -111,7 +176,10 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-300"
+            >
               Email
             </label>
             <input
@@ -126,7 +194,10 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-300"
+            >
               Password
             </label>
             <input
@@ -134,14 +205,21 @@ const Register = () => {
               id="password"
               name="password"
               required
+              minLength={6}
               className="mt-1 block w-full rounded-md bg-white bg-opacity-20 border border-gray-300 text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00BFFF]"
               value={formData.password}
               onChange={handleChange}
             />
+            <p className="text-xs text-gray-400 mt-1">
+              Password must be at least 6 characters
+            </p>
           </div>
 
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-gray-300"
+            >
               Confirm Password
             </label>
             <input
@@ -155,10 +233,13 @@ const Register = () => {
             />
           </div>
 
-          {type === 'freelancer' && 'skills' in formData ? (
+          {type === "freelancer" && "skills" in formData ? (
             <>
               <div>
-                <label htmlFor="skills" className="block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="skills"
+                  className="block text-sm font-medium text-gray-300"
+                >
                   Skills
                 </label>
                 <input
@@ -177,13 +258,17 @@ const Register = () => {
                   Services Offered
                 </label>
                 <div className="space-y-2">
-                  {['Dubbing', 'Transcription', 'Voice Over'].map((service) => (
-                    <label key={service} className="flex items-center space-x-2">
+                  {["Dubbing", "Transcription", "Voice Over"].map((service) => (
+                    <label
+                      key={service}
+                      className="flex items-center space-x-2"
+                    >
                       <input
                         type="checkbox"
                         name="services"
                         value={service}
                         onChange={handleChange}
+                        checked={formData.services.includes(service)}
                         className="rounded border-gray-300 text-[#00BFFF] focus:ring-[#00BFFF]"
                       />
                       <span className="text-gray-300">{service}</span>
@@ -193,7 +278,10 @@ const Register = () => {
               </div>
 
               <div>
-                <label htmlFor="hourlyRate" className="block text-sm font-medium text-gray-300">
+                <label
+                  htmlFor="hourlyRate"
+                  className="block text-sm font-medium text-gray-300"
+                >
                   Hourly Rate ($)
                 </label>
                 <input
@@ -207,35 +295,72 @@ const Register = () => {
                 />
               </div>
             </>
-          ) : type === 'client' && 'companyName' in formData ? (
-            <div>
-              <label htmlFor="companyName" className="block text-sm font-medium text-gray-300">
-                Company Name
-              </label>
-              <input
-                type="text"
-                id="companyName"
-                name="companyName"
-                className="mt-1 block w-full rounded-md bg-white bg-opacity-20 border border-gray-300 text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00BFFF]"
-                value={formData.companyName}
-                onChange={handleChange}
-              />
-            </div>
+          ) : type === "client" && "companyName" in formData ? (
+            <>
+              <div>
+                <label
+                  htmlFor="companyName"
+                  className="block text-sm font-medium text-gray-300"
+                >
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  id="companyName"
+                  name="companyName"
+                  className="mt-1 block w-full rounded-md bg-white bg-opacity-20 border border-gray-300 text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00BFFF]"
+                  value={formData.companyName}
+                  onChange={handleChange}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="industry"
+                  className="block text-sm font-medium text-gray-300"
+                >
+                  Industry
+                </label>
+                <input
+                  type="text"
+                  id="industry"
+                  name="industry"
+                  className="mt-1 block w-full rounded-md bg-white bg-opacity-20 border border-gray-300 text-white px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00BFFF]"
+                  value={formData.industry}
+                  onChange={handleChange}
+                />
+              </div>
+            </>
           ) : null}
 
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00BFFF] hover:bg-[#0099CC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BFFF]"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00BFFF] hover:bg-[#0099CC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BFFF] disabled:opacity-50"
             >
-              Register
+              {loading ? "Registering..." : "Register"}
             </button>
           </div>
         </form>
 
         <div className="mt-6 text-center">
-          <Link href="/auth/login" className="text-[#00BFFF] hover:text-[#0099CC]">
+          <Link
+            href="/auth/login"
+            className="text-[#00BFFF] hover:text-[#0099CC]"
+          >
             Already have an account? Log in
+          </Link>
+        </div>
+
+        <div className="mt-4 text-center">
+          <Link
+            href={`/auth/register?type=${
+              type === "freelancer" ? "client" : "freelancer"
+            }`}
+            className="text-[#00BFFF] hover:text-[#0099CC]"
+          >
+            Register as {type === "freelancer" ? "Client" : "Freelancer"}{" "}
+            instead
           </Link>
         </div>
       </div>
@@ -243,4 +368,4 @@ const Register = () => {
   );
 };
 
-export default Register; 
+export default Register;

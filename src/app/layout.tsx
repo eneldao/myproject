@@ -10,7 +10,8 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Trans-Easy - Professional Translation Services",
-  description: "Professional translation, voice-over, dubbing, and transcription services.",
+  description:
+    "Professional translation, voice-over, dubbing, and transcription services.",
 };
 
 export default function RootLayout({
