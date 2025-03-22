@@ -53,13 +53,13 @@ const ServicesPage = () => {
     {
       title: "Dubbing",
       description: "High-quality dubbing services in multiple languages for films and videos.",
-      image: "/dubbing.png",
+      image: "/Dubbing.png",
       link: "/services/dubbing"
     },
     {
       title: "Transcription",
       description: "Accurate transcription services for audio and video content.",
-      image: "/transcription.png",
+      image: "/Transcription.png",
       link: "/services/transcription"
     }
   ];
