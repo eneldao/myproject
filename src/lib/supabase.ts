@@ -23,11 +23,28 @@ export const supabase = createClient(
 // Types for our database tables
 export type Profile = {
   id: string;
-  full_name: string;
   email: string;
-  avatar_url: string | null;
+  full_name: string;
+  user_type: 'client' | 'freelancer' | 'admin';
   created_at: string;
   updated_at: string;
+};
+
+export type Transaction = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  project_id: string;
+  amount: number;
+  status: 'pending' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  sender?: Profile;
+  receiver?: Profile;
+  project?: {
+    id: string;
+    title: string;
+  };
 };
 
 export type Freelancer = {
