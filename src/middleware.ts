@@ -20,10 +20,31 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
+  // Admin routes handling
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    if (!session) {
+      return NextResponse.redirect(new URL('/auth/signin', request.url));
+    }
+
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', session.user.id)
+      .single();
+
+    if (!profile || profile.user_type !== 'admin') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    return res;
+  }
+
   // Protected routes handling
   if (
     request.nextUrl.pathname.startsWith('/dashboard') ||
-    request.nextUrl.pathname.startsWith('/profile')
+    request.nextUrl.pathname.startsWith('/profile') ||
+    request.nextUrl.pathname.startsWith('/transactions')
   ) {
     if (!session) {
       // If no session, redirect to sign in
@@ -39,6 +60,8 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/profile/:path*',
+    '/transactions/:path*',
     '/auth/:path*',
+    '/admin/:path*',
   ],
 }; 

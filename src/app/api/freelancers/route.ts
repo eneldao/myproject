@@ -1,24 +1,19 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-// GET: Fetch a user's profile
+// GET: Fetch all freelancers or a specific freelancer by ID
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const id = searchParams.get('id');
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    let query = supabase.from('freelancers').select('*');
+
+    if (id) {
+      query = query.eq('id', id).single();
     }
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(`
-        *,
-        freelancer:freelancer_id(*)
-      `)
-      .eq('id', userId)
-      .single();
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -31,19 +26,19 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Create a new profile
+// POST: Add a new freelancer
 export async function POST(request: Request) {
   try {
-    const profile = await request.json();
+    const freelancer = await request.json();
 
     // Validate required fields
-    if (!profile.id || !profile.full_name || !profile.email) {
+    if (!freelancer.name || !freelancer.title || !freelancer.description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     const { data, error } = await supabase
-      .from('profiles')
-      .insert([profile])
+      .from('freelancers')
+      .insert([freelancer])
       .select()
       .single();
 
@@ -58,17 +53,17 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT: Update a profile
+// PUT: Update a freelancer's details
 export async function PUT(request: Request) {
   try {
     const { id, ...updates } = await request.json();
 
     if (!id) {
-      return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Freelancer ID is required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
-      .from('profiles')
+      .from('freelancers')
       .update(updates)
       .eq('id', id)
       .select()
@@ -85,18 +80,18 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE: Remove a profile
+// DELETE: Remove a freelancer by ID
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Freelancer ID is required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
-      .from('profiles')
+      .from('freelancers')
       .delete()
       .eq('id', id)
       .select()
@@ -111,4 +106,4 @@ export async function DELETE(request: Request) {
       { status: 500 }
     );
   }
-} 
+}

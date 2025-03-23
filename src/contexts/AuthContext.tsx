@@ -1,5 +1,4 @@
 "use client";
-
 import React, {
   createContext,
   useContext,
@@ -9,6 +8,7 @@ import React, {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -24,6 +24,7 @@ interface AuthContextType {
   }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,63 +33,101 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const router = useRouter();
 
   // Initialize auth state from Supabase
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // Get current session
         const {
           data: { session: currentSession },
         } = await supabase.auth.getSession();
         setSession(currentSession);
         setUser(currentSession?.user || null);
 
-        // Set up auth state listener
+        // Check if user is admin
+        if (currentSession?.user) {
+          setIsAdmin(currentSession.user.email === "admin@example.com");
+        }
+
         const {
           data: { subscription },
-        } = await supabase.auth.onAuthStateChange((_event, newSession) => {
+        } = supabase.auth.onAuthStateChange((_event, newSession) => {
           setSession(newSession);
           setUser(newSession?.user || null);
+
+          // Update admin status when auth state changes
+          if (newSession?.user) {
+            setIsAdmin(newSession.user.email === "admin@example.com");
+          } else {
+            setIsAdmin(false);
+          }
         });
 
-        setLoading(false);
-
-        // Cleanup listener
         return () => subscription.unsubscribe();
       } catch (error) {
         console.error("Error initializing auth:", error);
+      } finally {
         setLoading(false);
       }
     };
 
     initializeAuth();
-  }, []);
+  }, [router]);
+
+  useEffect(() => {
+    if (!loading && isAdmin) {
+      router.push("/admin");
+    }
+  }, [isAdmin, loading, router]);
 
   const login = async (email: string, password: string) => {
     try {
+      console.log("Attempting login with:", email); // Debug log
+
+      // Sign in directly with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        return { error, success: false };
+        console.error("Supabase login error:", error.message); // Debug log
+        return {
+          error: new Error("Invalid login credentials"),
+          success: false,
+        };
+      }
+
+      console.log("Login successful:", data.user?.email); // Debug log
+
+      // Set user and session
+      setUser(data.user);
+      setSession(data.session);
+
+      // Refresh session to ensure it's updated
+      await refreshSession();
+
+      // Check if admin
+      setIsAdmin(email === "admin@example.com");
+      if (email === "admin@example.com") {
+        router.push("/admin");
       }
 
       return { error: null, success: true };
     } catch (error) {
       console.error("Login error:", error);
-      return {
-        error:
-          error instanceof Error ? error : new Error("Unknown error occurred"),
-        success: false,
-      };
+      return { error: error as Error, success: false };
     }
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setIsAdmin(false);
+    router.push("/auth/signin");
   };
 
   const refreshSession = async () => {
@@ -98,6 +137,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } = await supabase.auth.getSession();
       setSession(refreshedSession);
       setUser(refreshedSession?.user || null);
+
+      // Update admin status
+      if (refreshedSession?.user) {
+        setIsAdmin(refreshedSession.user.email === "admin@example.com");
+      }
     } catch (error) {
       console.error("Error refreshing session:", error);
     }
@@ -113,9 +157,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         refreshSession,
+        isAdmin,
       }}
     >
-      {children}
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
