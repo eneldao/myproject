@@ -1,0 +1,32 @@
+{
+  "merchant_account": {
+    "ccp_number": "0023456789",
+    "ccp_key": "42",
+    "holder_name": "Your Company Name",
+    "wilaya": "Alger"
+  },
+  "transactions": [
+    {
+      "id": "tr_001",
+      "user_id": "user_123",
+      "ccp_number": "0012345678",
+      "ccp_key": "12",
+      "amount": 3900,
+      "plan": "Basic",
+      "billing_period": "month",
+      "status": "pending",
+      "created_at": "2024-03-24T12:00:00Z",
+      "updated_at": "2024-03-24T12:00:00Z"
+    }
+  ],
+  "users_payment_info": [
+    {
+      "user_id": "user_123",
+      "ccp_number": "0012345678",
+      "ccp_key": "12",
+      "holder_name": "John Doe",
+      "wilaya": "Oran",
+      "verified": true
+    }
+  ]
+} 

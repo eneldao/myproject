@@ -1,5 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Define types
+export type FreelancerProfile = {
+  id: string;
+  user_id: string;
+  name: string;
+  image_url: string;
+  rating: number;
+  about: string;
+  services: {
+    voiceOver: string[];
+    conferenceInterpretation: string[];
+  };
+  languages: string[];
+  roles: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
   throw new Error('Missing environment variable: NEXT_PUBLIC_SUPABASE_URL');
 }

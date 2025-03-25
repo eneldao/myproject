@@ -3,9 +3,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <nav className="bg-transparent fixed w-full z-50">
@@ -38,9 +40,18 @@ const Navbar = () => {
             <Link href="/services" className="text-white hover:text-[#00BFFF]">
               SERVICES
             </Link>
-            <Link href="/login" className="bg-[#00BFFF] text-white px-6 py-2 rounded-md hover:bg-[#0099CC]">
-              Login
+            <Link href="/payment" className="text-white hover:text-[#00BFFF]">
+              PRICING
             </Link>
+            {user ? (
+              <Link href="/dashboard" className="bg-[#00BFFF] text-white px-6 py-2 rounded-md hover:bg-[#0099CC]">
+                Dashboard
+              </Link>
+            ) : (
+              <Link href="/auth/signin" className="bg-[#00BFFF] text-white px-6 py-2 rounded-md hover:bg-[#0099CC]">
+                Login
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -77,9 +88,18 @@ const Navbar = () => {
             <Link href="/services" className="block px-3 py-2 text-white hover:text-[#00BFFF]">
               SERVICES
             </Link>
-            <Link href="/login" className="block px-3 py-2 text-white hover:text-[#00BFFF]">
-              Login
+            <Link href="/payment" className="block px-3 py-2 text-white hover:text-[#00BFFF]">
+              PRICING
             </Link>
+            {user ? (
+              <Link href="/dashboard" className="block px-3 py-2 text-white hover:text-[#00BFFF]">
+                Dashboard
+              </Link>
+            ) : (
+              <Link href="/auth/signin" className="block px-3 py-2 text-white hover:text-[#00BFFF]">
+                Login
+              </Link>
+            )}
           </div>
         </div>
       )}
