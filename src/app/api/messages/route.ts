@@ -23,7 +23,9 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: true });
 
     if (otherUserId) {
-      query = query.and(`(sender_id.eq.${otherUserId},receiver_id.eq.${otherUserId})`);
+      query = query
+        .eq('sender_id', otherUserId)
+        .eq('receiver_id', otherUserId);
     }
 
     const { data, error } = await query;
