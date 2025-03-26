@@ -1,26 +1,37 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'POST') {
-    const { email, password } = req.body;
+export async function POST(request: Request) {
+  try {
+    const { email, password } = await request.json();
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (error) {
-        return res.status(401).json({ error: 'Invalid login credentials' });
-      }
-
-      return res.status(200).json({ user: data.user, session: data.session });
-    } catch (error) {
-      return res.status(500).json({ error: 'Internal server error' });
+    if (error) {
+      return NextResponse.json(
+        { error: "Invalid login credentials" },
+        { status: 401 }
+      );
     }
-  } else {
-    res.setHeader('Allow', ['POST']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+
+    return NextResponse.json(
+      { user: data.user, session: data.session },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
+}
+
+export function OPTIONS() {
+  return NextResponse.json(
+    { message: "Method not allowed" },
+    { status: 405, headers: { Allow: "POST" } }
+  );
 }
