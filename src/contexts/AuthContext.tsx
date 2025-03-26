@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  signOut: () => void;
   user: User | null;
   session: Session | null;
   loading: boolean;
@@ -158,6 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         refreshSession,
         isAdmin,
+        signOut: logout, // Add signOut property
       }}
     >
       {!loading && children}
