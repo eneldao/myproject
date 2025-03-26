@@ -12,17 +12,8 @@ const inter = Inter({
 });
 
 // Define custom fonts
-const geist = localFont({
-  src: "../public/fonts/Geist.woff2",
-  variable: "--font-geist",
-  display: "swap",
-});
 
-const geistMono = localFont({
-  src: "../public/fonts/GeistMono.woff2",
-  variable: "--font-geist-mono",
-  display: "swap",
-});
+
 
 export const metadata: Metadata = {
   title: "Trans-Easy - Professional Translation Services",
@@ -37,9 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.variable} ${geist.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className="antialiased">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
