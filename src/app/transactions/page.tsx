@@ -3,7 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { FaArrowUp, FaArrowDown, FaFilter, FaSearch } from 'react-icons/fa';
-import type { Transaction } from '@/lib/supabase';
+type Transaction = {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  project: { title: string } | null;
+  sender: { full_name: string } | null;
+  receiver: { full_name: string } | null;
+  amount: number;
+  status: string;
+  created_at: string;
+};
 
 export default function TransactionsPage() {
   const { user } = useAuth();
