@@ -7,11 +7,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    let query = supabase.from('freelancers').select('*');
-
-    if (id) {
-      query = query.eq('id', id).single();
-    }
+    const baseQuery = supabase.from('freelancers').select('*');
+    const query = id ? baseQuery.eq('id', id).single() : baseQuery;
 
     const { data, error } = await query;
 
