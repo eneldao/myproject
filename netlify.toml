@@ -3,17 +3,35 @@
   publish = ".next"
 
 [build.environment]
-  NEXT_PUBLIC_SUPABASE_URL = "your-supabase-url"
-  NEXT_PUBLIC_SUPABASE_ANON_KEY = "your-supabase-anon-key"
   NODE_VERSION = "18"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# Don't redirect everything to index.html - let Next.js handle routing
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200
 
+# Include necessary external modules for serverless functions
 [functions]
-  external_node_modules = ["@supabase/supabase-js"] 
+  external_node_modules = ["@supabase/supabase-js"]
+
+# This ensures Next.js ISR and SSR work properly
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = false
+  minify = false
+
+[build.processing.js]
+  bundle = false
+  minify = false
+
+[build.processing.html]
+  pretty_urls = true
+
+[build.processing.images]
+  compress = false 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -27,7 +27,8 @@ type ClientFormData = BaseFormData & {
 
 type FormData = FreelancerFormData | ClientFormData;
 
-const Register = () => {
+// This component uses the useSearchParams hook
+const RegisterForm = () => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const type = searchParams.get('type') || 'freelancer';
@@ -325,6 +326,17 @@ const Register = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+// Wrap the component that uses useSearchParams in a Suspense boundary
+const Register = () => {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-r from-[#001F3F] to-[#003366] flex items-center justify-center">
+      <div className="text-white text-xl">Loading...</div>
+    </div>}>
+      <RegisterForm />
+    </Suspense>
   );
 };
 
