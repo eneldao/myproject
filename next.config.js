@@ -8,7 +8,6 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-    unoptimized: false, // Enable Vercel's image optimization
   },
   swcMinify: true, // Use SWC for minification
   reactStrictMode: true,

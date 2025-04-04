@@ -1,35 +1,72 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { FaStar, FaLanguage, FaMicrophone, FaHeadphones, FaPen } from 'react-icons/fa';
 import { supabase } from '@/lib/supabase';
-import { notFound } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import type { Freelancer } from '@/lib/supabase';
 
-async function getFreelancer(id: string) {
-  const { data: freelancer, error } = await supabase
-    .from('freelancers')
-    .select(`
-      *,
-      profiles (
-        full_name,
-        avatar_url
-      )
-    `)
-    .eq('id', id)
-    .single();
+type FreelancerWithProfile = Freelancer & {
+  profiles: {
+    full_name: string;
+    avatar_url: string | null;
+  };
+};
 
-  if (error || !freelancer) {
-    return null;
+export default function FreelancerProfile({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const [freelancer, setFreelancer] = useState<FreelancerWithProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    async function fetchFreelancer() {
+      try {
+        const { data, error } = await supabase
+          .from('freelancers')
+          .select(`
+            *,
+            profiles (
+              full_name,
+              avatar_url
+            )
+          `)
+          .eq('id', params.id)
+          .single();
+
+        if (error || !data) {
+          setError(true);
+          return;
+        }
+
+        setFreelancer(data as FreelancerWithProfile);
+      } catch (err) {
+        console.error('Error fetching freelancer:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFreelancer();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-r from-[#001F3F] to-[#003366] flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
   }
 
-  return freelancer;
-}
-
-export default async function FreelancerProfile({ params }: { params: { id: string } }) {
-  const freelancer = await getFreelancer(params.id);
-
-  if (!freelancer) {
-    notFound();
+  if (error || !freelancer) {
+    return (
+      <div className="min-h-screen bg-gradient-to-r from-[#001F3F] to-[#003366] flex items-center justify-center">
+        <div className="text-white text-xl">Freelancer not found</div>
+      </div>
+    );
   }
 
   return (
@@ -98,7 +135,7 @@ export default async function FreelancerProfile({ params }: { params: { id: stri
                   <FaLanguage className="mr-2" /> Languages
                 </h3>
                 <div className="flex flex-wrap gap-3">
-                  {freelancer.languages.map((language) => (
+                  {freelancer.languages.map((language: string) => (
                     <span key={language} className="bg-white/5 text-white px-4 py-2 rounded-full">
                       {language}
                     </span>
@@ -112,7 +149,7 @@ export default async function FreelancerProfile({ params }: { params: { id: stri
                   <FaMicrophone className="mr-2" /> Services
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {freelancer.services.map((service) => (
+                  {freelancer.services.map((service: string) => (
                     <div key={service} className="bg-white/5 p-4 rounded-lg text-center">
                       {service === 'Voice-over' && <FaMicrophone className="mx-auto text-2xl text-[#00BFFF] mb-2" />}
                       {service === 'Dubbing' && <FaHeadphones className="mx-auto text-2xl text-[#00BFFF] mb-2" />}
