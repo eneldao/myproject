@@ -1,7 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['knozavomplxdbbmbmmuk.supabase.co'], // Allow Supabase storage domain
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'knozavomplxdbbmbmmuk.supabase.co',
+        pathname: '/**',
+      },
+    ],
     unoptimized: false, // Enable Vercel's image optimization
   },
   swcMinify: true, // Use SWC for minification

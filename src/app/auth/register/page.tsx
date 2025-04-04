@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import { supabase } from '@/lib/supabase';
 
 type BaseFormData = {
   fullName: string;
@@ -28,7 +29,10 @@ type FormData = FreelancerFormData | ClientFormData;
 
 const Register = () => {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const type = searchParams.get('type') || 'freelancer';
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   
   const [formData, setFormData] = useState<FormData>({
     fullName: '',
@@ -48,8 +52,82 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement registration logic
-    console.log('Form submitted:', formData);
+    setLoading(true);
+    setError('');
+    
+    try {
+      console.log('Form submitted:', formData);
+      
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error('Passwords do not match');
+      }
+      
+      // 1. Create the user account with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            user_type: type
+          }
+        }
+      });
+      
+      if (authError) throw authError;
+      
+      // 2. Store additional profile data based on user type
+      if (authData.user) {
+        const userId = authData.user.id;
+        
+        // Create base profile record
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            full_name: formData.fullName,
+            email: formData.email,
+            user_type: type
+          });
+          
+        if (profileError) throw profileError;
+        
+        // Add type-specific data
+        if (type === 'freelancer' && 'skills' in formData) {
+          const { error: freelancerError } = await supabase
+            .from('freelancers')
+            .insert({
+              user_id: userId,
+              skills: formData.skills,
+              experience: formData.experience,
+              hourly_rate: parseFloat(formData.hourlyRate) || 0,
+              services: formData.services
+            });
+            
+          if (freelancerError) throw freelancerError;
+        } else if (type === 'client' && 'companyName' in formData) {
+          const { error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              user_id: userId,
+              company_name: formData.companyName,
+              industry: formData.industry
+            });
+            
+          if (clientError) throw clientError;
+        }
+        
+        // Redirect to login or dashboard
+        alert('Registration successful! Please check your email to verify your account.');
+        router.push('/auth/login');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred during registration');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -223,12 +301,19 @@ const Register = () => {
             </div>
           ) : null}
 
+          {error && (
+            <div className="p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300 text-sm">
+              {error}
+            </div>
+          )}
+          
           <div>
             <button
               type="submit"
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00BFFF] hover:bg-[#0099CC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BFFF]"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00BFFF] hover:bg-[#0099CC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BFFF] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Register
+              {loading ? 'Registering...' : 'Register'}
             </button>
           </div>
         </form>
