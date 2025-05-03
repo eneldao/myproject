@@ -743,7 +743,7 @@ Downloaded: ${new Date().toLocaleString()}
   }
 
   return (
-    <div className="max-w-7xl bg-slate-800 mx-auto px-4 py-8">
+    <div className="bg-slate-800 w-full min-h-screen mx-auto px-4 py-8">
       {/* Back Button */}
       <div className="mb-6">
         <button
