@@ -50,9 +50,13 @@ export default function SignUp() {
       };
 
       // Use our AuthContext signup function
-      const response = await signup(email, password, fullName, userType, {
-        ...additionalData,
-      });
+      const response = await signup(
+        email,
+        password,
+        fullName,
+        userType,
+        additionalData
+      );
 
       // Redirect to manual registration confirmation page
       router.push(
