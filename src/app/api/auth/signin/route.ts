@@ -1,37 +1,52 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
-export async function POST(request: Request) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
+
+function hashPassword(password: string): string {
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+export async function POST(req: Request) {
   try {
-    const { email, password } = await request.json();
+    const { email, password } = await req.json();
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "Invalid login credentials" },
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    const passwordHash = hashPassword(password);
+
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id, user_type")
+      .eq("email", email)
+      .eq("password_hash", passwordHash)
+      .single();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
         { status: 401 }
       );
     }
 
+    return NextResponse.json({
+      success: true,
+      userId: user.id,
+      userType: user.user_type,
+    });
+  } catch (error: any) {
     return NextResponse.json(
-      { user: data.user, session: data.session },
-      { status: 200 }
-    );
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error.message || "An unexpected error occurred" },
       { status: 500 }
     );
   }
-}
-
-export function OPTIONS() {
-  return NextResponse.json(
-    { message: "Method not allowed" },
-    { status: 405, headers: { Allow: "POST" } }
-  );
 }

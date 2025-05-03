@@ -1,30 +1,46 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const role = searchParams.get('role'); // 'client' or 'freelancer'
+    const url = new URL(request.url);
+    const clientId = url.searchParams.get("client_id");
+    const freelancerId = url.searchParams.get("freelancer_id");
 
-    if (!userId || !role) {
-      return NextResponse.json({ error: 'User ID and role are required' }, { status: 400 });
+    console.log(`Fetching projects - client_id: ${clientId}, freelancer_id: ${freelancerId}`);
+    
+    // Make sure to include only columns that exist in the table
+    let query = supabase
+      .from("projects")
+      .select(
+        "id, title, description, budget, status, freelancer_id, client_id, created_at"
+      );
+
+    if (clientId) {
+      query = query.eq("client_id", clientId);
     }
 
-    const { data, error } = await supabase
-      .from('projects')
-      .select(`
-        *,
-        freelancer:freelancer_id(id, full_name),
-        client:client_id(id, full_name)
-      `)
-      .eq(role === 'client' ? 'client_id' : 'freelancer_id', userId);
+    if (freelancerId) {
+      query = query.eq("freelancer_id", freelancerId);
+    }
 
-    if (error) throw error;
-    return NextResponse.json(data);
+    const { data: projects, error } = await query.order("created_at", {
+      ascending: false,
+    });
+
+    if (error) {
+      console.error("Error fetching projects:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch projects" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(projects || []);
   } catch (error) {
+    console.error("Error in GET projects:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -32,41 +48,50 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const project = await request.json();
+    const data = await request.json();
 
-    const { data, error } = await supabase
-      .from('projects')
-      .insert([project])
+    // Validate required fields
+    if (
+      !data.title ||
+      !data.description ||
+      !data.budget ||
+      !data.freelancer_id ||
+      !data.client_id
+    ) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Create project in database
+    const { data: project, error } = await supabase
+      .from("projects")
+      .insert({
+        title: data.title,
+        description: data.description,
+        budget: parseFloat(data.budget),
+        status: data.status || "pending",
+        freelancer_id: data.freelancer_id,
+        client_id: data.client_id,
+      })
       .select()
       .single();
 
-    if (error) throw error;
-    return NextResponse.json(data);
+    if (error) {
+      console.error("Error creating project:", error);
+      return NextResponse.json(
+        { error: "Failed to create project" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(project, { status: 201 });
   } catch (error) {
+    console.error("Error in POST projects:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
-
-export async function PUT(request: Request) {
-  try {
-    const { id, ...updates } = await request.json();
-
-    const { data, error } = await supabase
-      .from('projects')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
-    );
-  }
-} 

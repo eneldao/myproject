@@ -21,13 +21,13 @@ const Hero = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
-                href="/auth/register?type=freelancer"
+                href="/signup/freelancer"
                 className="bg-[#00BFFF] text-white px-8 py-3 rounded-md text-lg font-medium hover:bg-[#0099CC] transition-colors text-center"
               >
                 JOIN AS FREELANCER
               </Link>
               <Link
-                href="/auth/register?type=client"
+                href="/signup/client"
                 className="border-2 border-[#00BFFF] text-white px-8 py-3 rounded-md text-lg font-medium hover:bg-[#00BFFF] transition-colors text-center"
               >
                 JOIN AS CLIENT

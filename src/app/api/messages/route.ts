@@ -1,132 +1,118 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 
-// GET: Fetch messages for a user or between two users
+// Create a Supabase client with admin privileges for operations that need to bypass RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    const otherUserId = searchParams.get('otherUserId');
+    // Parse URL to get query parameters
+    const url = new URL(request.url);
+    const projectId = url.searchParams.get("project_id");
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    console.log(`Messages API called with project_id=${projectId}`);
+
+    // Return early if project_id is missing
+    if (!projectId) {
+      console.log("Missing required project_id parameter");
+      return NextResponse.json(
+        { error: "Missing required project_id parameter" },
+        { status: 400 }
+      );
     }
 
-    let query = supabase
-      .from('messages')
-      .select(`
-        *,
-        sender:sender_id(id, full_name),
-        receiver:receiver_id(id, full_name)
-      `)
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order('created_at', { ascending: true });
+    // Fetch messages for the specified project using admin client to bypass RLS
+    console.log(`Fetching messages for project: ${projectId}`);
+    const { data: messages, error: messagesError } = await supabaseAdmin
+      .from("project_messages")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
 
-    if (otherUserId) {
-      query = query
-        .eq('sender_id', otherUserId)
-        .eq('receiver_id', otherUserId);
+    if (messagesError) {
+      console.error("Error querying messages:", messagesError);
+      return NextResponse.json(
+        { error: messagesError.message },
+        { status: 500 }
+      );
     }
 
-    const { data, error } = await query;
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    console.log(`Found ${messages ? messages.length : 0} messages`);
+    return NextResponse.json(messages || []);
   } catch (error) {
+    console.error("Error in GET /api/messages:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
 
-// POST: Create a new message
 export async function POST(request: Request) {
   try {
-    const message = await request.json();
+    const body = await request.json();
+    const { content, project_id, sender_id } = body;
+
+    console.log("Received message POST request:", {
+      project_id,
+      sender_id,
+      content: content.substring(0, 20) + (content.length > 20 ? "..." : ""),
+    });
 
     // Validate required fields
-    if (!message.sender_id || !message.receiver_id || !message.content) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    if (!content) {
+      return NextResponse.json(
+        { error: "Message content is required" },
+        { status: 400 }
+      );
     }
 
-    const { data, error } = await supabase
-      .from('messages')
-      .insert([message])
-      .select(`
-        *,
-        sender:sender_id(id, full_name),
-        receiver:receiver_id(id, full_name)
-      `)
-      .single();
+    if (!project_id) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 }
+      );
+    }
 
-    if (error) throw error;
+    if (!sender_id) {
+      return NextResponse.json(
+        { error: "Sender ID is required" },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(data, { status: 201 });
+    // Insert the new message using admin client to bypass RLS
+    const { data, error } = await supabaseAdmin
+      .from("project_messages")
+      .insert({
+        content,
+        project_id,
+        sender_id,
+      })
+      .select();
+
+    if (error) {
+      console.error("Error inserting message:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    console.log("Message successfully saved:", data);
+    return NextResponse.json(data);
   } catch (error) {
+    console.error("Error in POST /api/messages:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
-
-// PUT: Update a message (e.g., mark as read)
-export async function PUT(request: Request) {
-  try {
-    const { id, ...updates } = await request.json();
-
-    if (!id) {
-      return NextResponse.json({ error: 'Message ID is required' }, { status: 400 });
-    }
-
-    const { data, error } = await supabase
-      .from('messages')
-      .update(updates)
-      .eq('id', id)
-      .select(`
-        *,
-        sender:sender_id(id, full_name),
-        receiver:receiver_id(id, full_name)
-      `)
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE: Remove a message
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Message ID is required' }, { status: 400 });
-    }
-
-    const { data, error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
-    );
-  }
-} 

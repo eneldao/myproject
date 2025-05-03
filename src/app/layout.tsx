@@ -3,17 +3,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
-// Import custom fonts
-import localFont from "next/font/local";
-
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
-
-// Define custom fonts
-
-
 
 export const metadata: Metadata = {
   title: "Trans-Easy - Professional Translation Services",

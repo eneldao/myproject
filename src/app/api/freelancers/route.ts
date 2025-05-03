@@ -1,105 +1,50 @@
-import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+// app/api/freelancers/route.ts
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
-// GET: Fetch all freelancers or a specific freelancer by ID
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const url = new URL(req.url);
+    const freelancerId = url.searchParams.get("id");
 
-    const baseQuery = supabase.from('freelancers').select('*');
-    const query = id ? baseQuery.eq('id', id).single() : baseQuery;
+    if (freelancerId) {
+      // Fetch specific freelancer by ID
+      const { data: freelancer, error } = await supabase
+        .from("freelancers")
+        .select("*")
+        .eq("id", freelancerId)
+        .single();
 
-    const { data, error } = await query;
+      if (error) {
+        console.error("Error fetching freelancer:", error);
+        return NextResponse.json(
+          { error: "Failed to fetch freelancer" },
+          { status: 500 }
+        );
+      }
 
-    if (error) throw error;
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
-    );
-  }
-}
-
-// POST: Add a new freelancer
-export async function POST(request: Request) {
-  try {
-    const freelancer = await request.json();
-
-    // Validate required fields
-    if (!freelancer.name || !freelancer.title || !freelancer.description) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(freelancer);
     }
 
-    const { data, error } = await supabase
-      .from('freelancers')
-      .insert([freelancer])
-      .select()
-      .single();
+    // Fetch all freelancers if no ID is provided
+    const { data: freelancers, error } = await supabase
+      .from("freelancers")
+      .select("*")
+      .order("rating", { ascending: false });
 
-    if (error) throw error;
-
-    return NextResponse.json(data, { status: 201 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT: Update a freelancer's details
-export async function PUT(request: Request) {
-  try {
-    const { id, ...updates } = await request.json();
-
-    if (!id) {
-      return NextResponse.json({ error: 'Freelancer ID is required' }, { status: 400 });
+    if (error) {
+      console.error("Error fetching freelancers:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch freelancers" },
+        { status: 500 }
+      );
     }
 
-    const { data, error } = await supabase
-      .from('freelancers')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(freelancers);
   } catch (error) {
+    console.error("Error in freelancers API:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE: Remove a freelancer by ID
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Freelancer ID is required' }, { status: 400 });
-    }
-
-    const { data, error } = await supabase
-      .from('freelancers')
-      .delete()
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error occurred' },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
