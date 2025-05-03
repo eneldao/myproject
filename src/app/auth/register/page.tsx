@@ -1,203 +1,65 @@
 "use client";
 
-<<<<<<< HEAD
-import { useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import { supabase } from '@/lib/supabase';
-=======
 import { useState } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
->>>>>>> new-safe-branch
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [userType, setUserType] = useState("freelancer");
-  const [companyName, setCompanyName] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [hourlyRate, setHourlyRate] = useState(0);
-  const [services, setServices] = useState("");
-  const [languages, setLanguages] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
+  const [userType, setUserType] = useState("client");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
+  const [contactEmail, setContactEmail] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const router = useRouter();
   const { signup } = useAuth();
-  const router = useRouter();
-
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      // Build the additional data object based on user type
-      const additionalData =
-        userType === "freelancer"
-          ? {
-              title,
-              description,
-              hourly_rate: hourlyRate,
-              services: services
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-              languages: languages
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean),
-            }
-          : {
-              company_name: companyName,
-              contact_name: contactName || fullName,
-              contact_email: contactEmail || email,
-            };
-
-<<<<<<< HEAD
-// This component uses the useSearchParams hook
-const RegisterForm = () => {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const type = searchParams.get('type') || 'freelancer';
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
-  const [formData, setFormData] = useState<FormData>({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    ...(type === 'freelancer' ? {
-      skills: '',
-      experience: '',
-      hourlyRate: '',
-      services: []
-    } : {
-      companyName: '',
-      industry: ''
-    })
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    
-    try {
-      console.log('Form submitted:', formData);
-      
-      // Validate passwords match
-      if (formData.password !== formData.confirmPassword) {
-        throw new Error('Passwords do not match');
-      }
-      
-      // 1. Create the user account with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-            user_type: type
-          }
-        }
-      });
-      
-      if (authError) throw authError;
-      
-      // 2. Store additional profile data based on user type
-      if (authData.user) {
-        const userId = authData.user.id;
-        
-        // Create base profile record
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            full_name: formData.fullName,
-            email: formData.email,
-            user_type: type
-          });
-          
-        if (profileError) throw profileError;
-        
-        // Add type-specific data
-        if (type === 'freelancer' && 'skills' in formData) {
-          const { error: freelancerError } = await supabase
-            .from('freelancers')
-            .insert({
-              user_id: userId,
-              skills: formData.skills,
-              experience: formData.experience,
-              hourly_rate: parseFloat(formData.hourlyRate) || 0,
-              services: formData.services
-            });
-            
-          if (freelancerError) throw freelancerError;
-        } else if (type === 'client' && 'companyName' in formData) {
-          const { error: clientError } = await supabase
-            .from('clients')
-            .insert({
-              user_id: userId,
-              company_name: formData.companyName,
-              industry: formData.industry
-            });
-            
-          if (clientError) throw clientError;
-        }
-        
-        // Redirect to login or dashboard
-        alert('Registration successful! Please check your email to verify your account.');
-        router.push('/auth/login');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred during registration');
-    } finally {
-      setLoading(false);
+    setError("");
+
+    // Form validation
+    if (!email || !password || !fullName) {
+      setError("Please fill in all required fields");
+      return;
     }
-  };
-=======
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Prepare additional data based on user type
+      const additionalData = {
+        user_type: userType,
+        full_name: fullName,
+        created_at: new Date().toISOString(),
+        contact_email: contactEmail || email,
+      };
+
       // Use our AuthContext signup function
-      const response = await signup(
-        email,
-        password,
-        fullName,
-        userType,
-        additionalData
+      const response = await signup(email, password, fullName, userType, {
+        ...additionalData,
+      });
+
+      // Redirect to manual registration confirmation page
+      router.push(
+        `/signup/confirmation?email=${encodeURIComponent(
+          email
+        )}&type=${userType}`
       );
-
-      if (response.success) {
-        setSuccess(true);
-        // Save form data for the manual registration process
-        sessionStorage.setItem(
-          "registrationFormData",
-          JSON.stringify({
-            email,
-            fullName,
-            userType,
-            ...additionalData,
-          })
-        );
->>>>>>> new-safe-branch
-
-        // Redirect to manual registration confirmation page
-        router.push(
-          `/signup/manual-registration?email=${encodeURIComponent(
-            email
-          )}&type=${userType}`
-        );
-      } else {
-        setError(response.error?.message || "Failed to create account");
-      }
     } catch (error: any) {
       console.error("Registration error:", error);
       setError(error.message || "An unexpected error occurred");
@@ -215,25 +77,36 @@ const RegisterForm = () => {
         </div>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-            Account created successfully! Redirecting...
-          </div>
+          <div className="bg-red-50 p-4 rounded-md text-red-500">{error}</div>
         )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Full Name
+              </label>
+              <input
+                id="fullName"
+                name="fullName"
+                type="text"
+                autoComplete="name"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700"
               >
-                Email address
+                Email Address
               </label>
               <input
                 id="email"
@@ -243,7 +116,7 @@ const RegisterForm = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
 
@@ -262,241 +135,116 @@ const RegisterForm = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
 
             <div>
               <label
-                htmlFor="fullName"
+                htmlFor="confirmPassword"
                 className="block text-sm font-medium text-gray-700"
               >
-                Full Name
+                Confirm Password
               </label>
               <input
-                id="fullName"
-                name="fullName"
-                type="text"
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
                 required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="userType"
-                className="block text-sm font-medium text-gray-700"
-              >
+              <label className="block text-sm font-medium text-gray-700">
                 Account Type
               </label>
-              <select
-                id="userType"
-                name="type"
-                value={userType}
-                onChange={(e) => setUserType(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-              >
-                <option value="freelancer">Freelancer</option>
-                <option value="client">Client</option>
-              </select>
+              <div className="mt-2 flex space-x-4">
+                <div className="flex items-center">
+                  <input
+                    id="client"
+                    name="userType"
+                    type="radio"
+                    value="client"
+                    checked={userType === "client"}
+                    onChange={() => setUserType("client")}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  />
+                  <label
+                    htmlFor="client"
+                    className="ml-2 block text-sm text-gray-700"
+                  >
+                    Client
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    id="freelancer"
+                    name="userType"
+                    type="radio"
+                    value="freelancer"
+                    checked={userType === "freelancer"}
+                    onChange={() => setUserType("freelancer")}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  />
+                  <label
+                    htmlFor="freelancer"
+                    className="ml-2 block text-sm text-gray-700"
+                  >
+                    Freelancer
+                  </label>
+                </div>
+              </div>
             </div>
 
             {userType === "client" && (
-              <>
-                <div>
-                  <label
-                    htmlFor="companyName"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Company Name
-                  </label>
-                  <input
-                    id="companyName"
-                    name="companyName"
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="contactName"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Contact Name
-                  </label>
-                  <input
-                    id="contactName"
-                    name="contactName"
-                    type="text"
-                    value={contactName}
-                    onChange={(e) => setContactName(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="contactEmail"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Contact Email
-                  </label>
-                  <input
-                    id="contactEmail"
-                    name="contactEmail"
-                    type="email"
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-              </>
-            )}
-
-            {userType === "freelancer" && (
-              <>
-                <div>
-                  <label
-                    htmlFor="title"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Title
-                  </label>
-                  <input
-                    id="title"
-                    name="title"
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="description"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="hourlyRate"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Hourly Rate
-                  </label>
-                  <input
-                    id="hourlyRate"
-                    name="hourlyRate"
-                    type="number"
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(Number(e.target.value))}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="services"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Services (comma separated)
-                  </label>
-                  <input
-                    id="services"
-                    name="services"
-                    type="text"
-                    value={services}
-                    onChange={(e) => setServices(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="languages"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Languages (comma separated)
-                  </label>
-                  <input
-                    id="languages"
-                    name="languages"
-                    type="text"
-                    value={languages}
-                    onChange={(e) => setLanguages(e.target.value)}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  />
-                </div>
-              </>
+              <div>
+                <label
+                  htmlFor="companyName"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Company Name (Optional)
+                </label>
+                <input
+                  id="companyName"
+                  name="companyName"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
             )}
           </div>
 
-          {error && (
-            <div className="p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300 text-sm">
-              {error}
-            </div>
-          )}
-          
           <div>
             <button
               type="submit"
-<<<<<<< HEAD
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00BFFF] hover:bg-[#0099CC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BFFF] disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                loading ? "opacity-70 cursor-not-allowed" : ""
+              }`}
             >
-              {loading ? 'Registering...' : 'Register'}
-=======
-              disabled={loading || success}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
-            >
-              {loading ? "Creating account..." : "Sign up"}
->>>>>>> new-safe-branch
+              {loading ? "Signing Up..." : "Sign Up"}
             </button>
           </div>
         </form>
 
         <div className="text-center mt-4">
-          <p>
+          <p className="text-sm text-gray-600">
             Already have an account?{" "}
-            <Link href="/login" className="text-blue-600 hover:text-blue-500">
-              Sign in
+            <Link
+              href="/auth/signin"
+              className="font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Sign In
             </Link>
           </p>
         </div>
       </div>
     </div>
   );
-<<<<<<< HEAD
-};
-
-// Wrap the component that uses useSearchParams in a Suspense boundary
-const Register = () => {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-gradient-to-r from-[#001F3F] to-[#003366] flex items-center justify-center">
-      <div className="text-white text-xl">Loading...</div>
-    </div>}>
-      <RegisterForm />
-    </Suspense>
-  );
-};
-
-export default Register; 
-=======
 }
->>>>>>> new-safe-branch
