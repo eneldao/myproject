@@ -31,7 +31,7 @@ export default function ClientSignup() {
 
       // Call signup method to register user directly
       const response = await signup(email, password, fullName, "client", {
-        company_name: companyName,
+        companyName: companyName, // Changed from company_name to companyName to match API expectations
         contact_name: fullName,
         contact_email: email,
       });

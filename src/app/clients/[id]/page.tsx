@@ -743,7 +743,7 @@ Downloaded: ${new Date().toLocaleString()}
   }
 
   return (
-    <div className="bg-slate-800 w-full min-h-screen mx-auto px-4 py-8">
+    <div className="bg-slate-800 w-full  mx-auto px-4 py-8">
       {/* Back Button */}
       <div className="mb-6">
         <button
@@ -897,12 +897,12 @@ Downloaded: ${new Date().toLocaleString()}
             <h2 className="text-xl font-bold text-slate-100">
               Client Projects
             </h2>
-            <Link
-              href={`/projects/new?client=${id}`}
+            <button
+              onClick={() => setActiveTab("freelancers")}
               className="bg-[#00BFFF] text-white px-4 py-2 rounded-md hover:bg-[#0099CC] transition-colors text-sm"
             >
               Create New Project
-            </Link>
+            </button>
           </div>
 
           {projects.length === 0 ? (
@@ -910,12 +910,12 @@ Downloaded: ${new Date().toLocaleString()}
               <p className="text-gray-600 mb-4">
                 No projects found for this client.
               </p>
-              <Link
-                href={`/projects/new?client=${id}`}
+              <button
+                onClick={() => setActiveTab("freelancers")}
                 className="text-[#00BFFF] hover:underline"
               >
                 Create their first project
-              </Link>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
