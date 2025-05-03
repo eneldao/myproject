@@ -36,8 +36,8 @@ async function checkAdminUser() {
     console.log("Admin profiles found:", profiles);
   } catch (error) {
     console.error("Error checking admin user:", error);
-    console.error("Error checking admin user:", error);
   }
 }
-checkAdminUser();
+
+// Call the function only once
 checkAdminUser();
