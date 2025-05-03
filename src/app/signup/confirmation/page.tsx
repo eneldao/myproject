@@ -1,11 +1,37 @@
-"use client";
-import { useSearchParams } from "next/navigation";
+"use client"; // Fix for export error
+import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 
+// Confirmation page loaded
 export default function SignupConfirmation() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams?.get("email");
-  const type = searchParams?.get("type") || "";
+  const email = searchParams?.get("email") || "your email";
+  const type = searchParams?.get("type") || "account";
+  const [pageLoaded, setPageLoaded] = useState(false);
+
+  useEffect(() => {
+    console.log("SignupConfirmation page loaded"); // Add this line
+    // Mark page as loaded - helps ensure client-side code is running
+    setPageLoaded(true);
+
+    // Verify that we have the necessary URL parameters
+    if (!searchParams?.get("email")) {
+      console.warn("No email provided in URL parameters");
+    }
+
+    // Log current path to help with debugging
+    console.log("Current path:", window.location.pathname);
+
+    // Verify the page is correctly mounted at the expected route
+    if (window.location.pathname !== "/signup/confirmation") {
+      console.error(
+        "Page mounted at incorrect path:",
+        window.location.pathname
+      );
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -41,8 +67,8 @@ export default function SignupConfirmation() {
               <div className="mt-2 text-sm text-blue-700">
                 <p>
                   Please check your email inbox and click the verification link
-                  to complete your {type} account registration. If you don't see
-                  it within a few minutes, check your spam folder.
+                  to complete your {type} registration. If you don't see it
+                  within a few minutes, check your spam folder.
                 </p>
               </div>
             </div>

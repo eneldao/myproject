@@ -1,4 +1,4 @@
-"use client";
+"use client"; // Fix for export error
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -16,6 +16,7 @@ export default function ManualRegistration() {
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(5);
 
   useEffect(() => {
+    console.log("ManualRegistration page loaded");
     // Retrieve form data from sessionStorage
     const storedData = sessionStorage.getItem("registrationFormData");
     if (storedData) {
@@ -96,13 +97,15 @@ export default function ManualRegistration() {
         console.log("User successfully registered with ID:", result.userId);
         finishRegistration(data.email, password);
       } else {
-        console.log("Registration failed:", result.error || "Unknown error");
-        setError(result.error || "An unexpected error occurred.");
+        console.error("API Error:", result.error || "Unknown error");
+        setError(
+          result.error || "An unexpected error occurred during registration."
+        );
         setIsProcessing(false);
       }
     } catch (err) {
       console.error("Error in registration process:", err);
-      setError("An unexpected error occurred. Please try again later.");
+      setError("A network or server error occurred. Please try again later.");
       setIsProcessing(false);
     }
   };
@@ -112,11 +115,21 @@ export default function ManualRegistration() {
     try {
       // Retrieve the registration data with userId if available
       const storedRegistration = localStorage.getItem("pendingRegistration");
-      const registrationData = storedRegistration
-        ? JSON.parse(storedRegistration)
-        : null;
-      const userId = registrationData?.userId;
-      const userType = registrationData?.userType || formData?.userType;
+      if (!storedRegistration) {
+        console.error("No registration data found in localStorage");
+        setError("Registration data not found. Please try again.");
+        setIsProcessing(false);
+        return;
+      }
+
+      const registrationData = JSON.parse(storedRegistration);
+      const userId = registrationData?.userId || null;
+      const userType =
+        registrationData?.userType || formData?.userType || "user";
+
+      if (!userId) {
+        console.warn("No userId found in registration data");
+      }
 
       // Registration completed successfully
       setStatus("Registration completed successfully!");
@@ -193,7 +206,7 @@ export default function ManualRegistration() {
                 >
                   <path
                     fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 101.414 1.414L10 11.414l1.293 1.293a1 1 001.414-1.414L11.414 10l1.293-1.293a1 1 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    d="M10 18a8 8 0 100-16 8 8 000 16zM8.707 7.293a1 1 000-1.414L8.586 10l-1.293 1.293a1 1 101.414 1.414L10 11.414l1.293 1.293a1 1 001.414-1.414L11.414 10l1.293-1.293a1 1 00-1.414-1.414L10 8.586 8.707 7.293z"
                     clipRule="evenodd"
                   />
                 </svg>
@@ -217,7 +230,7 @@ export default function ManualRegistration() {
                 >
                   <path
                     fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 001.414 0l4-4z"
+                    d="M10 18a8 8 000-16 8 8 000 16zm3.707-9.293a1 1 00-1.414-1.414L9 10.586 7.707 9.293a1 1 00-1.414 1.414l2 2a1 1 001.414 0l4-4z"
                     clipRule="evenodd"
                   />
                 </svg>

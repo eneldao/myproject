@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
-  const { id } = params;
+export const runtime = "nodejs"; // 👈 this line forces Node.js runtime
 
+// This is the default route handler for /api path
+export async function GET(req: Request) {
   try {
+    // Get the id from URL parameters instead of path params
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from("profiles")
       .select("user_type")
@@ -15,6 +21,7 @@ export async function GET(
       .single();
 
     if (error || !data) {
+      console.error("Error fetching user type:", error || "No data found");
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
@@ -22,10 +29,15 @@ export async function GET(
 
     return NextResponse.json({ userType: data.user_type });
   } catch (error) {
-    console.error("Error fetching user role:", error);
+    console.error("Unexpected error fetching user role:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }
     );
   }
+}
+
+// Add POST handler for /api endpoint if needed
+export async function POST(req: Request) {
+  return NextResponse.json({ message: "API endpoint ready" });
 }
