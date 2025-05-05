@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { Freelancer, Client, Project } from "@/lib/types";
+// Add missing imports for animations
+import { motion, AnimatePresence } from "framer-motion";
 
 // Enhanced Client interface to include additional fields
 interface EnhancedClient extends Client {
@@ -90,6 +92,10 @@ export default function ClientPage() {
   const [fundError, setFundError] = useState("");
   const [insufficientFunds, setInsufficientFunds] = useState(false);
 
+  // Add animation states
+  const [isTabChanging, setIsTabChanging] = useState(false);
+  const [animationComplete, setAnimationComplete] = useState(true);
+
   // Extract unique services from freelancers for filter dropdown
   const allServices = useCallback(() => {
     const servicesSet = new Set<string>();
@@ -143,10 +149,31 @@ export default function ClientPage() {
             throw new Error("Invalid freelancer data received from server");
           });
 
-        setFreelancers(freelancersData);
-        setFilteredFreelancers(freelancersData);
+        // Check if the response contains a freelancers array property
+        if (
+          freelancersData &&
+          freelancersData.freelancers &&
+          Array.isArray(freelancersData.freelancers)
+        ) {
+          setFreelancers(freelancersData.freelancers);
+          setFilteredFreelancers(freelancersData.freelancers);
+        } else if (Array.isArray(freelancersData)) {
+          // Fallback to direct array if that's how the API returns data
+          setFreelancers(freelancersData);
+          setFilteredFreelancers(freelancersData);
+        } else {
+          console.error(
+            "Freelancers data is not in the expected format:",
+            freelancersData
+          );
+          setFreelancers([]);
+          setFilteredFreelancers([]);
+        }
       } catch (err) {
         console.error("Error fetching freelancers:", err);
+        // Ensure arrays are initialized even on error
+        setFreelancers([]);
+        setFilteredFreelancers([]);
       }
     } catch (err) {
       console.error("Failed to fetch client data:", err);
@@ -558,12 +585,39 @@ export default function ClientPage() {
     setFilteredFreelancers(results);
   }, [freelancers, searchTerm, filterOptions]);
 
+  // Modify activeTab state setter to include animation
+  const handleTabChange = (tab: "projects" | "messages" | "freelancers") => {
+    setIsTabChanging(true);
+    setTimeout(() => {
+      setActiveTab(tab);
+      setIsTabChanging(false);
+    }, 200);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-t-[#00BFFF] border-b-[#00BFFF] border-l-transparent border-r-transparent rounded-full animate-spin mb-4"></div>
-          Loading client details...
+      <div className="min-h-screen flex items-center justify-center bg-slate-800">
+        <div className="text-xl flex flex-col items-center text-white">
+          <div className="relative w-24 h-24">
+            <div className="w-24 h-24 border-4 border-t-[#00BFFF] border-b-[#00BFFF] border-l-transparent border-r-transparent rounded-full animate-spin"></div>
+            {/* Add sound wave animation for loading state */}
+            <div className="absolute inset-0 flex justify-center items-center">
+              <div className="flex items-center space-x-1">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className={`w-1 bg-[#00BFFF] animate-soundwave-${i}`}
+                    style={{
+                      height: `${12 + i * 8}px`,
+                      animationDelay: `${i * 0.1}s`,
+                      animation: `soundwave 0.8s infinite ${i * 0.1}s`,
+                    }}
+                  ></div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-4">Loading client details...</div>
         </div>
       </div>
     );
@@ -679,35 +733,6 @@ export default function ClientPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-t-[#00BFFF] border-b-[#00BFFF] border-l-transparent border-r-transparent rounded-full animate-spin mb-4"></div>
-          Loading...
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-          <div className="text-red-500 text-xl font-semibold mb-4">
-            Error Loading Data
-          </div>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={handleRetry}
-            className="w-full bg-[#00BFFF] text-white py-2 px-4 rounded-md hover:bg-[#0099CC] transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
   function handleDownloadDeliverable(project: {
     id: string;
     title: string;
@@ -744,14 +769,44 @@ Downloaded: ${new Date().toLocaleString()}
 
   return (
     <div className="bg-slate-800 w-full min-h-screen mx-auto px-4 py-8">
+      {/* Add CSS for sound wave animation */}
+      <style jsx global>{`
+        @keyframes soundwave {
+          0%,
+          100% {
+            height: 12px;
+          }
+          50% {
+            height: 24px;
+          }
+        }
+        .animate-soundwave-1 {
+          animation: soundwave 0.8s infinite 0.1s;
+        }
+        .animate-soundwave-2 {
+          animation: soundwave 0.8s infinite 0.2s;
+        }
+        .animate-soundwave-3 {
+          animation: soundwave 0.8s infinite 0.3s;
+        }
+        .animate-soundwave-4 {
+          animation: soundwave 0.8s infinite 0.4s;
+        }
+      `}</style>
+
       {/* Back Button */}
-      <div className="mb-6">
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <button
           onClick={() => router.back()}
-          className="flex items-center text-[#00BFFF] hover:text-[#0099CC] transition-colors"
+          className="flex items-center text-[#00BFFF] hover:text-[#0099CC] transition-colors group"
         >
           <svg
-            className="w-5 h-5 mr-1"
+            className="w-5 h-5 mr-1 transform group-hover:translate-x-[-3px] transition-transform"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -766,10 +821,15 @@ Downloaded: ${new Date().toLocaleString()}
           </svg>
           Back to Clients
         </button>
-      </div>
+      </motion.div>
 
-      {/* Enhanced Client Header */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      {/* Enhanced Client Header with animation */}
+      <motion.div
+        className="bg-white rounded-lg shadow-md p-6 mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -854,184 +914,254 @@ Downloaded: ${new Date().toLocaleString()}
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Tabs Navigation */}
-      <div className="flex border-b mb-6">
+      {/* Tabs Navigation with animation */}
+      <motion.div
+        className="flex border-b mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+      >
         <button
-          onClick={() => setActiveTab("projects")}
-          className={`px-6 py-3 font-medium text-sm ${
+          onClick={() => handleTabChange("projects")}
+          className={`px-6 py-3 font-medium text-sm relative ${
             activeTab === "projects"
-              ? "border-b-2 border-[#00BFFF] text-[#00BFFF]"
-              : "text-gray-500 hover:text-gray-700"
+              ? "text-[#00BFFF]"
+              : "text-gray-500 hover:text-gray-300"
           }`}
         >
           Projects
+          {activeTab === "projects" && (
+            <motion.div
+              className="absolute bottom-0 left-0 w-full h-0.5 bg-[#00BFFF]"
+              layoutId="activeTab"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            />
+          )}
         </button>
         <button
-          onClick={() => setActiveTab("freelancers")}
-          className={`px-6 py-3 font-medium text-sm ${
+          onClick={() => handleTabChange("freelancers")}
+          className={`px-6 py-3 font-medium text-sm relative ${
             activeTab === "freelancers"
-              ? "border-b-2 border-[#00BFFF] text-[#00BFFF]"
-              : "text-gray-500 hover:text-gray-700"
+              ? "text-[#00BFFF]"
+              : "text-gray-500 hover:text-gray-300"
           }`}
         >
           Freelancers
+          {activeTab === "freelancers" && (
+            <motion.div
+              className="absolute bottom-0 left-0 w-full h-0.5 bg-[#00BFFF]"
+              layoutId="activeTab"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            />
+          )}
         </button>
         <button
-          onClick={() => setActiveTab("messages")}
-          className={`px-6 py-3 font-medium text-sm ${
+          onClick={() => handleTabChange("messages")}
+          className={`px-6 py-3 font-medium text-sm relative ${
             activeTab === "messages"
-              ? "border-b-2 border-[#00BFFF] text-[#00BFFF]"
-              : "text-gray-500 hover:text-gray-700"
+              ? "text-[#00BFFF]"
+              : "text-gray-500 hover:text-gray-300"
           }`}
         >
           Messages
+          {activeTab === "messages" && (
+            <motion.div
+              className="absolute bottom-0 left-0 w-full h-0.5 bg-[#00BFFF]"
+              layoutId="activeTab"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            />
+          )}
         </button>
-      </div>
+      </motion.div>
 
-      {/* Projects Tab */}
-      {activeTab === "projects" && (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-slate-100">
-              Client Projects
-            </h2>
-            <Link
-              href={`/projects/new?client=${id}`}
-              className="bg-[#00BFFF] text-white px-4 py-2 rounded-md hover:bg-[#0099CC] transition-colors text-sm"
-            >
-              Create New Project
-            </Link>
-          </div>
-
-          {projects.length === 0 ? (
-            <div className="bg-gray-50 rounded-lg p-8 text-center">
-              <p className="text-gray-600 mb-4">
-                No projects found for this client.
-              </p>
+      {/* Tab Content with Animation */}
+      <AnimatePresence mode="wait">
+        {/* Projects Tab */}
+        {activeTab === "projects" && (
+          <motion.div
+            key="projects"
+            className="space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-slate-100">
+                Client Projects
+              </h2>
               <Link
                 href={`/projects/new?client=${id}`}
-                className="text-[#00BFFF] hover:underline"
+                className="bg-[#00BFFF] text-white px-4 py-2 rounded-md hover:bg-[#0099CC] transition-colors text-sm"
               >
-                Create their first project
+                Create New Project
               </Link>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5"
+
+            {projects.length === 0 ? (
+              <div className="bg-gray-50 rounded-lg p-8 text-center">
+                <p className="text-gray-600 mb-4">
+                  No projects found for this client.
+                </p>
+                <Link
+                  href={`/projects/new?client=${id}`}
+                  className="text-[#00BFFF] hover:underline"
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-lg truncate">
-                      {project.title}
-                    </h3>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        project.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : project.status === "in_progress"
-                          ? "bg-blue-100 text-blue-800"
-                          : project.status === "paid"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {project.status === "in_progress"
-                        ? "In Progress"
-                        : project.status.charAt(0).toUpperCase() +
-                          project.status.slice(1)}
-                    </span>
-                  </div>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {project.description}
-                  </p>
-                  <div className="flex justify-between items-center">
-                    <div className="text-gray-700">
-                      <span className="font-semibold">${project.budget}</span>
-                    </div>
-                    <div className="flex space-x-2">
-                      {project.status === "completed" && (
-                        <button
-                          onClick={() => handlePayFreelancer(project)}
-                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                          disabled={processingPayment === project.id}
-                        >
-                          {processingPayment === project.id ? (
-                            <span className="flex items-center">
-                              <svg
-                                className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                              Processing
-                            </span>
-                          ) : (
-                            "Pay Freelancer"
-                          )}
-                        </button>
-                      )}
-                      {project.status === "paid" && (
-                        <button
-                          onClick={() => handleDownloadDeliverable(project)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                        >
-                          Download Deliverable
-                        </button>
-                      )}
-                      <Link
-                        href={`/projects/${project.id}`}
-                        className="text-[#00BFFF] hover:underline text-sm flex items-center"
+                  Create their first project
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {projects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-lg truncate">
+                        {project.title}
+                      </h3>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full ${
+                          project.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : project.status === "in_progress"
+                            ? "bg-blue-100 text-blue-800"
+                            : project.status === "paid"
+                            ? "bg-purple-100 text-purple-800"
+                            : "bg-yellow-100 text-yellow-800"
+                        }`}
                       >
-                        View Details
-                      </Link>
+                        {project.status === "in_progress"
+                          ? "In Progress"
+                          : project.status.charAt(0).toUpperCase() +
+                            project.status.slice(1)}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {project.description}
+                    </p>
+                    <div className="flex justify-between items-center">
+                      <div className="text-gray-700">
+                        <span className="font-semibold">${project.budget}</span>
+                      </div>
+                      <div className="flex space-x-2">
+                        {project.status === "completed" && (
+                          <button
+                            onClick={() => handlePayFreelancer(project)}
+                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                            disabled={processingPayment === project.id}
+                          >
+                            {processingPayment === project.id ? (
+                              <span className="flex items-center">
+                                <svg
+                                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                                Processing
+                              </span>
+                            ) : (
+                              "Pay Freelancer"
+                            )}
+                          </button>
+                        )}
+                        {project.status === "paid" && (
+                          <button
+                            onClick={() => handleDownloadDeliverable(project)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                          >
+                            Download Deliverable
+                          </button>
+                        )}
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="text-[#00BFFF] hover:underline text-sm flex items-center"
+                        >
+                          View Details
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
 
-      {/* Freelancers Tab */}
-      {activeTab === "freelancers" && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">
-                Available Freelancers ({filteredFreelancers.length})
-              </h2>
+        {/* Freelancers Tab */}
+        {activeTab === "freelancers" && (
+          <motion.div
+            key="freelancers"
+            className="space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">
+                  Available Freelancers (
+                  {(filteredFreelancers && filteredFreelancers.length) || 0})
+                </h2>
 
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search freelancers..."
-                    className="border rounded-md py-2 px-4 pl-10 w-full focus:ring-blue-500 focus:border-blue-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search freelancers..."
+                      className="border rounded-md py-2 px-4 pl-10 w-full focus:ring-blue-500 focus:border-blue-500"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <svg
+                        className="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        ></path>
+                      </svg>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="bg-gray-100 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+                  >
                     <svg
-                      className="w-5 h-5 text-gray-400"
+                      className="w-5 h-5 mr-2"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1041,438 +1171,450 @@ Downloaded: ${new Date().toLocaleString()}
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth="2"
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
                       ></path>
                     </svg>
+                    Filters
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter panel */}
+              {showFilters && (
+                <div className="bg-gray-50 p-4 rounded-md mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Min Hourly Rate ($)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full border rounded-md p-2"
+                        value={filterOptions.minRate}
+                        onChange={(e) =>
+                          setFilterOptions((prev) => ({
+                            ...prev,
+                            minRate: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Max Hourly Rate ($)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-full border rounded-md p-2"
+                        value={filterOptions.maxRate}
+                        onChange={(e) =>
+                          setFilterOptions((prev) => ({
+                            ...prev,
+                            maxRate: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Min Rating
+                      </label>
+                      <select
+                        className="w-full border rounded-md p-2"
+                        value={filterOptions.minRating}
+                        onChange={(e) =>
+                          setFilterOptions((prev) => ({
+                            ...prev,
+                            minRating: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Any</option>
+                        <option value="1">1+ Stars</option>
+                        <option value="2">2+ Stars</option>
+                        <option value="3">3+ Stars</option>
+                        <option value="4">4+ Stars</option>
+                        <option value="4.5">4.5+ Stars</option>
+                      </select>
+                    </div>
+
+                    <div className="md:flex md:items-end">
+                      <button
+                        onClick={resetFilters}
+                        className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
+                      >
+                        Reset Filters
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Services filter */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Services
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {allServices().map((service) => (
+                        <button
+                          key={service}
+                          onClick={() => toggleServiceFilter(service)}
+                          className={`text-sm px-3 py-1 rounded-full ${
+                            filterOptions.services.includes(service)
+                              ? "bg-[#00BFFF] text-white"
+                              : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                          } transition-colors`}
+                        >
+                          {service}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="bg-gray-100 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
-                >
-                  <svg
-                    className="w-5 h-5 mr-2"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
+              {/* No results message */}
+              {(!filteredFreelancers || filteredFreelancers.length === 0) && (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 text-lg">
+                    No freelancers found matching your criteria.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="mt-4 bg-gray-200 text-gray-800 py-2 px-6 rounded-md hover:bg-gray-300 transition-colors"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                    ></path>
-                  </svg>
-                  Filters
-                </button>
+                    Reset Filters
+                  </button>
+                </div>
+              )}
+
+              {/* Freelancers Grid with safe mapping */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredFreelancers && filteredFreelancers.length > 0
+                  ? filteredFreelancers.map((freelancer) => (
+                      <motion.div
+                        key={freelancer.id}
+                        className="border rounded-lg p-4 hover:shadow-lg transition-shadow bg-white"
+                        whileHover={{
+                          y: -5,
+                          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
+                        }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {/* Freelancer card content remains the same */}
+                        <div className="flex items-center mb-3">
+                          {freelancer.avatar_url ? (
+                            <img
+                              src={freelancer.avatar_url}
+                              alt={`${freelancer.full_name}'s avatar`}
+                              className="h-10 w-10 rounded-full mr-3"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                              <span className="text-gray-600 font-medium">
+                                {freelancer.full_name?.charAt(0) || "F"}
+                              </span>
+                            </div>
+                          )}
+                          <h3 className="text-xl font-semibold truncate">
+                            {freelancer.full_name}
+                          </h3>
+                        </div>
+                        <h4 className="text-lg font-medium mb-2 truncate">
+                          {freelancer.title}
+                        </h4>
+                        <p className="text-gray-600 mb-4 line-clamp-3 h-18">
+                          {freelancer.description}
+                        </p>
+                        <div className="space-y-2 mb-4">
+                          <p className="text-gray-600">
+                            <span className="font-medium">Hourly Rate:</span> $
+                            {freelancer.hourly_rate || "N/A"}
+                          </p>
+                          {freelancer.languages &&
+                            freelancer.languages.length > 0 && (
+                              <p className="text-gray-600">
+                                <span className="font-medium">Languages:</span>{" "}
+                                {freelancer.languages.join(", ")}
+                              </p>
+                            )}
+                          {freelancer.services &&
+                            freelancer.services.length > 0 && (
+                              <p className="text-gray-600 truncate">
+                                <span className="font-medium">Services:</span>{" "}
+                                {freelancer.services.join(", ")}
+                              </p>
+                            )}
+                          <p className="text-gray-600">
+                            <span className="font-medium">Rating:</span>{" "}
+                            <span className="flex items-center">
+                              {freelancer.rating || "N/A"}
+                              {freelancer.rating ? (
+                                <span className="text-yellow-400 ml-1">★</span>
+                              ) : null}
+                              <span className="ml-1">
+                                ({freelancer.reviews_count || 0} reviews)
+                              </span>
+                            </span>
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedFreelancer(freelancer);
+                              setActiveTab("messages");
+                            }}
+                            className="text-center bg-[#00BFFF] text-white py-2 rounded-md hover:bg-[#0099CC] transition-colors"
+                          >
+                            Contact Now
+                          </button>
+                          <button
+                            onClick={() => handleProjectRequest(freelancer.id)}
+                            className="block text-center bg-gray-100 text-gray-800 py-2 rounded-md hover:bg-gray-200 transition-colors"
+                          >
+                            Request Project
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))
+                  : null}
               </div>
             </div>
+          </motion.div>
+        )}
 
-            {/* Filter panel */}
-            {showFilters && (
-              <div className="bg-gray-50 p-4 rounded-md mb-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Min Hourly Rate ($)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full border rounded-md p-2"
-                      value={filterOptions.minRate}
-                      onChange={(e) =>
-                        setFilterOptions((prev) => ({
-                          ...prev,
-                          minRate: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
+        {/* Messages Tab */}
+        {activeTab === "messages" && (
+          <motion.div
+            key="messages"
+            className="bg-white rounded-lg shadow-md p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              Project Messages
+            </h2>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Hourly Rate ($)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-full border rounded-md p-2"
-                      value={filterOptions.maxRate}
-                      onChange={(e) =>
-                        setFilterOptions((prev) => ({
-                          ...prev,
-                          maxRate: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Min Rating
-                    </label>
-                    <select
-                      className="w-full border rounded-md p-2"
-                      value={filterOptions.minRating}
-                      onChange={(e) =>
-                        setFilterOptions((prev) => ({
-                          ...prev,
-                          minRating: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">Any</option>
-                      <option value="1">1+ Stars</option>
-                      <option value="2">2+ Stars</option>
-                      <option value="3">3+ Stars</option>
-                      <option value="4">4+ Stars</option>
-                      <option value="4.5">4.5+ Stars</option>
-                    </select>
-                  </div>
-
-                  <div className="md:flex md:items-end">
-                    <button
-                      onClick={resetFilters}
-                      className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
-                    >
-                      Reset Filters
-                    </button>
-                  </div>
-                </div>
-
-                {/* Services filter */}
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Services
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {allServices().map((service) => (
-                      <button
-                        key={service}
-                        onClick={() => toggleServiceFilter(service)}
-                        className={`text-sm px-3 py-1 rounded-full ${
-                          filterOptions.services.includes(service)
-                            ? "bg-[#00BFFF] text-white"
-                            : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                        } transition-colors`}
-                      >
-                        {service}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* No results message */}
-            {filteredFreelancers.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-lg">
-                  No freelancers found matching your criteria.
-                </p>
-                <button
-                  onClick={resetFilters}
-                  className="mt-4 bg-gray-200 text-gray-800 py-2 px-6 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Reset Filters
-                </button>
-              </div>
-            )}
-
-            {/* Freelancers Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredFreelancers.map((freelancer) => (
-                <div
-                  key={freelancer.id}
-                  className="border rounded-lg p-4 hover:shadow-lg transition-shadow"
-                >
-                  <div className="flex items-center mb-3">
-                    {freelancer.avatar_url ? (
+            {/* Selected Freelancer Section (if applicable) */}
+            {selectedFreelancer && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {selectedFreelancer.avatar_url ? (
                       <img
-                        src={freelancer.avatar_url}
-                        alt={`${freelancer.full_name}'s avatar`}
+                        src={selectedFreelancer.avatar_url}
+                        alt={`${selectedFreelancer.full_name}'s avatar`}
                         className="h-10 w-10 rounded-full mr-3"
                       />
                     ) : (
                       <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
                         <span className="text-gray-600 font-medium">
-                          {freelancer.full_name?.charAt(0) || "F"}
+                          {selectedFreelancer.full_name?.charAt(0) || "F"}
                         </span>
                       </div>
                     )}
-                    <h3 className="text-xl font-semibold truncate">
-                      {freelancer.full_name}
-                    </h3>
-                  </div>
-                  <h4 className="text-lg font-medium mb-2 truncate">
-                    {freelancer.title}
-                  </h4>
-                  <p className="text-gray-600 mb-4 line-clamp-3 h-18">
-                    {freelancer.description}
-                  </p>
-                  <div className="space-y-2 mb-4">
-                    <p className="text-gray-600">
-                      <span className="font-medium">Hourly Rate:</span> $
-                      {freelancer.hourly_rate || "N/A"}
-                    </p>
-                    {freelancer.languages &&
-                      freelancer.languages.length > 0 && (
-                        <p className="text-gray-600">
-                          <span className="font-medium">Languages:</span>{" "}
-                          {freelancer.languages.join(", ")}
-                        </p>
-                      )}
-                    {freelancer.services && freelancer.services.length > 0 && (
-                      <p className="text-gray-600 truncate">
-                        <span className="font-medium">Services:</span>{" "}
-                        {freelancer.services.join(", ")}
+                    <div>
+                      <h3 className="font-semibold">
+                        {selectedFreelancer.full_name}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {selectedFreelancer.title}
                       </p>
-                    )}
-                    <p className="text-gray-600">
-                      <span className="font-medium">Rating:</span>{" "}
-                      <span className="flex items-center">
-                        {freelancer.rating || "N/A"}
-                        {freelancer.rating ? (
-                          <span className="text-yellow-400 ml-1">★</span>
-                        ) : null}
-                        <span className="ml-1">
-                          ({freelancer.reviews_count || 0} reviews)
-                        </span>
-                      </span>
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedFreelancer(freelancer);
-                        setActiveTab("messages");
-                      }}
-                      className="text-center bg-[#00BFFF] text-white py-2 rounded-md hover:bg-[#0099CC] transition-colors"
-                    >
-                      Contact Now
-                    </button>
-                    <button
-                      onClick={() => handleProjectRequest(freelancer.id)}
-                      className="block text-center bg-gray-100 text-gray-800 py-2 rounded-md hover:bg-gray-200 transition-colors"
-                    >
-                      Request Project
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Messages Tab */}
-      {activeTab === "messages" && (
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
-            Project Messages
-          </h2>
-
-          {/* Selected Freelancer Section (if applicable) */}
-          {selectedFreelancer && (
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  {selectedFreelancer.avatar_url ? (
-                    <img
-                      src={selectedFreelancer.avatar_url}
-                      alt={`${selectedFreelancer.full_name}'s avatar`}
-                      className="h-10 w-10 rounded-full mr-3"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                      <span className="text-gray-600 font-medium">
-                        {selectedFreelancer.full_name?.charAt(0) || "F"}
-                      </span>
                     </div>
-                  )}
-                  <div>
-                    <h3 className="font-semibold">
-                      {selectedFreelancer.full_name}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      {selectedFreelancer.title}
-                    </p>
                   </div>
-                </div>
-                <button
-                  onClick={() => setSelectedFreelancer(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    ></path>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Project Selector */}
-          <div className="mb-4">
-            <label
-              htmlFor="project-select"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Select Project
-            </label>
-            <select
-              id="project-select"
-              className="w-full border rounded-md p-2"
-              value={selectedProject || ""}
-              onChange={(e) => {
-                const projectId = e.target.value;
-                setSelectedProject(projectId);
-                if (projectId) {
-                  setDebugInfo("Project selected, loading messages...");
-                } else {
-                  setMessages([]);
-                  setDebugInfo("No project selected.");
-                }
-              }}
-            >
-              <option value="">Select a project</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.title} - {project.status}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selectedProject ? (
-            <>
-              {/* Message Display */}
-              <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto mb-4">
-                {/* Debug info to check message data */}
-                <div className="text-xs text-gray-400 mb-2 flex justify-between items-center">
-                  <span>Total messages: {messages.length}</span>
                   <button
-                    onClick={refreshMessages}
-                    disabled={refreshingMessages}
-                    className="text-blue-500 hover:text-blue-700"
-                    title="Refresh messages"
+                    onClick={() => setSelectedFreelancer(null)}
+                    className="text-gray-500 hover:text-gray-700"
                   >
-                    {refreshingMessages ? "Refreshing..." : "↻ Refresh"}
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M6 18L18 6M6 6l12 12"
+                      ></path>
+                    </svg>
                   </button>
                 </div>
+              </div>
+            )}
 
-                {messages.length === 0 ? (
-                  <div className="text-center py-4">
-                    <p className="text-gray-500 mb-2">
-                      No messages yet for this project.
-                    </p>
+            {/* Project Selector */}
+            <div className="mb-4">
+              <label
+                htmlFor="project-select"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
+                Select Project
+              </label>
+              <select
+                id="project-select"
+                className="w-full border rounded-md p-2"
+                value={selectedProject || ""}
+                onChange={(e) => {
+                  const projectId = e.target.value;
+                  setSelectedProject(projectId);
+                  if (projectId) {
+                    setDebugInfo("Project selected, loading messages...");
+                  } else {
+                    setMessages([]);
+                    setDebugInfo("No project selected.");
+                  }
+                }}
+              >
+                <option value="">Select a project</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.title} - {project.status}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                    {debugInfo && (
-                      <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded mb-4 text-left">
-                        <strong>Debug info:</strong> {debugInfo}
+            {selectedProject ? (
+              <>
+                {/* Message Display */}
+                <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto mb-4">
+                  {/* Debug info to check message data */}
+                  <div className="text-xs text-gray-400 mb-2 flex justify-between items-center">
+                    <span>Total messages: {messages.length}</span>
+                    <button
+                      onClick={refreshMessages}
+                      disabled={refreshingMessages}
+                      className="text-blue-500 hover:text-blue-700"
+                      title="Refresh messages"
+                    >
+                      {refreshingMessages ? "Refreshing..." : "↻ Refresh"}
+                    </button>
+                  </div>
+
+                  {messages.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-gray-500 mb-2">
+                        No messages yet for this project.
+                      </p>
+
+                      {debugInfo && (
+                        <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded mb-4 text-left">
+                          <strong>Debug info:</strong> {debugInfo}
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleSendTestMessage}
+                        disabled={sendingMessage}
+                        className="bg-gray-200 text-gray-800 py-1 px-3 rounded text-sm hover:bg-gray-300 transition-colors"
+                      >
+                        {sendingMessage ? "Sending..." : "Send a test message"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {messages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`p-3 rounded-lg max-w-3/4 ${
+                            message.sender_id === id
+                              ? "bg-blue-100 ml-auto"
+                              : "bg-gray-200"
+                          }`}
+                        >
+                          <p className="text-xs text-gray-500 mb-1">
+                            {message.sender_id === id ? "You" : "Freelancer"}
+                            {" · "}
+                            {new Date(message.created_at).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </p>
+                          <p>{message.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Message Input */}
+                <form onSubmit={handleSendMessage} className="mt-4">
+                  <div className="flex flex-col space-y-2">
+                    <textarea
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                      className="w-full border rounded-md p-2 min-h-[100px]"
+                      placeholder="Type your message..."
+                      required
+                    />
+
+                    {messageError && (
+                      <div className="text-red-500 text-sm">{messageError}</div>
+                    )}
+
+                    {messageSent && (
+                      <div className="text-green-500 text-sm">
+                        Message sent successfully!
                       </div>
                     )}
 
-                    <button
-                      onClick={handleSendTestMessage}
-                      disabled={sendingMessage}
-                      className="bg-gray-200 text-gray-800 py-1 px-3 rounded text-sm hover:bg-gray-300 transition-colors"
-                    >
-                      {sendingMessage ? "Sending..." : "Send a test message"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`p-3 rounded-lg max-w-3/4 ${
-                          message.sender_id === id
-                            ? "bg-blue-100 ml-auto"
-                            : "bg-gray-200"
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={sendingMessage}
+                        className={`bg-[#00BFFF] text-white py-2 px-6 rounded-md hover:bg-[#0099CC] transition-colors ${
+                          sendingMessage ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                       >
-                        <p className="text-xs text-gray-500 mb-1">
-                          {message.sender_id === id ? "You" : "Freelancer"}
-                          {" · "}
-                          {new Date(message.created_at).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                        <p>{message.content}</p>
-                      </div>
-                    ))}
+                        {sendingMessage ? "Sending..." : "Send Message"}
+                      </button>
+                    </div>
                   </div>
+                </form>
+              </>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <p className="text-gray-600 mb-4">
+                  Select a project to view and send messages.
+                </p>
+                {projects.length > 0 && (
+                  <p className="text-sm text-blue-600">
+                    You have {projects.length} projects available
+                  </p>
                 )}
               </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-              {/* Message Input */}
-              <form onSubmit={handleSendMessage} className="mt-4">
-                <div className="flex flex-col space-y-2">
-                  <textarea
-                    value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                    className="w-full border rounded-md p-2 min-h-[100px]"
-                    placeholder="Type your message..."
-                    required
-                  />
-
-                  {messageError && (
-                    <div className="text-red-500 text-sm">{messageError}</div>
-                  )}
-
-                  {messageSent && (
-                    <div className="text-green-500 text-sm">
-                      Message sent successfully!
-                    </div>
-                  )}
-
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      disabled={sendingMessage}
-                      className={`bg-[#00BFFF] text-white py-2 px-6 rounded-md hover:bg-[#0099CC] transition-colors ${
-                        sendingMessage ? "opacity-50 cursor-not-allowed" : ""
-                      }`}
-                    >
-                      {sendingMessage ? "Sending..." : "Send Message"}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </>
-          ) : (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <p className="text-gray-600 mb-4">
-                Select a project to view and send messages.
-              </p>
-              {projects.length > 0 && (
-                <p className="text-sm text-blue-600">
-                  You have {projects.length} projects available
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Add Funds Modal */}
+      {/* Add Funds Modal with enhanced animation */}
       {showAddFundsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <motion.div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="bg-white rounded-lg p-6 w-full max-w-md"
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ type: "spring", damping: 25 }}
+          >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Add Funds to Your Account</h2>
               <button
@@ -1601,8 +1743,8 @@ Downloaded: ${new Date().toLocaleString()}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

@@ -6,12 +6,22 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const freelancerId = url.searchParams.get("id");
+    const limit = url.searchParams.get("limit");
+    const offset = url.searchParams.get("offset");
+    const search = url.searchParams.get("search");
+
+    let query = supabase.from("freelancers").select("*");
+
+    // Apply search filter if provided
+    if (search) {
+      query = query.or(
+        `title.ilike.%${search}%,full_name.ilike.%${search}%,description.ilike.%${search}%`
+      );
+    }
 
     if (freelancerId) {
       // Fetch specific freelancer by ID
-      const { data: freelancer, error } = await supabase
-        .from("freelancers")
-        .select("*")
+      const { data: freelancer, error } = await query
         .eq("id", freelancerId)
         .single();
 
@@ -23,14 +33,34 @@ export async function GET(req: Request) {
         );
       }
 
-      return NextResponse.json(freelancer);
+      // Get projects for this freelancer
+      const { data: projects, error: projectsError } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("freelancer_id", freelancerId);
+
+      if (projectsError) {
+        console.error("Error fetching projects:", projectsError);
+      }
+
+      return NextResponse.json({
+        freelancer,
+        projects: projects || [],
+      });
     }
 
-    // Fetch all freelancers if no ID is provided
-    const { data: freelancers, error } = await supabase
-      .from("freelancers")
-      .select("*")
-      .order("rating", { ascending: false });
+    // Apply pagination if provided
+    if (limit) {
+      query = query.limit(parseInt(limit, 10));
+    } else {
+      query = query.limit(20); // Default limit
+    }
+
+    const {
+      data: freelancers,
+      error,
+      count,
+    } = await query.order("rating", { ascending: false }).returns<any[]>();
 
     if (error) {
       console.error("Error fetching freelancers:", error);
@@ -40,7 +70,19 @@ export async function GET(req: Request) {
       );
     }
 
-    return NextResponse.json(freelancers);
+    // Get total count for pagination
+    const { count: totalCount } = await supabase
+      .from("freelancers")
+      .select("*", { count: "exact", head: true });
+
+    return NextResponse.json({
+      freelancers,
+      pagination: {
+        total: totalCount,
+        limit: limit ? parseInt(limit, 10) : 20,
+        offset: offset ? parseInt(offset, 10) : 0,
+      },
+    });
   } catch (error) {
     console.error("Error in freelancers API:", error);
     return NextResponse.json(

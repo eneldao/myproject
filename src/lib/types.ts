@@ -22,6 +22,7 @@ export interface Client extends User {
   user_id?: string; // Added user_id property
 }
 export interface Freelancer extends User {
+  voiceCategories: any;
   bio: string;
   skills: never[];
   years_experience: number;

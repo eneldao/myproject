@@ -13,7 +13,7 @@ export default async function Home() {
     <main className="min-h-screen bg-gradient-to-r from-[#001F3F] to-[#003366]">
       <Navbar />
       <Hero />
-      
+
       <div style={{ display: "none" }}>
         {error ? (
           <p>Error connecting to Supabase: {error.message}</p>

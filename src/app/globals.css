@@ -25,7 +25,89 @@
   animation: float 3s ease-in-out infinite;
 }
 
+/* Sound wave animation keyframes */
+@keyframes soundwave {
+  0%,
+  100% {
+    height: 12px;
+  }
+  50% {
+    height: 24px;
+  }
+}
 
+/* Sound wave animation classes */
+.animate-soundwave-1 {
+  animation: soundwave 0.8s infinite 0.1s;
+}
+
+.animate-soundwave-2 {
+  animation: soundwave 0.8s infinite 0.2s;
+}
+
+.animate-soundwave-3 {
+  animation: soundwave 0.8s infinite 0.3s;
+}
+
+.animate-soundwave-4 {
+  animation: soundwave 0.8s infinite 0.4s;
+}
+
+/* Hover effect animations */
+.hover-translate-up {
+  transition: transform 0.3s;
+}
+
+.hover-translate-up:hover {
+  transform: translateY(-5px);
+}
+
+/* Card container animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* Tab indicator animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.tab-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background-color: #00bfff;
+  transition: transform 0.3s ease;
+}
+
+/* Project card & freelancer card visual enhancements */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
 
 @layer base {
   :root {
@@ -55,16 +137,11 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
-  
 }
-
-
 
 @layer base {
   * {
-    
     @apply border-border;
-    
   }
   body {
     @apply bg-background text-foreground;
