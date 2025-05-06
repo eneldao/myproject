@@ -3,15 +3,19 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'knozavomplxdbbmbmmuk.supabase.co',
-        pathname: '/**',
+        protocol: "https",
+        hostname: "knozavomplxdbbmbmmuk.supabase.co",
+        pathname: "/**",
       },
     ],
   },
   swcMinify: true, // Use SWC for minification
   reactStrictMode: true,
   poweredByHeader: false, // Remove X-Powered-By header
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  },
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;
