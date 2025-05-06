@@ -998,12 +998,6 @@ Downloaded: ${new Date().toLocaleString()}
               <h2 className="text-xl font-bold text-slate-100">
                 Client Projects
               </h2>
-              <Link
-                href={`/projects/new?client=${id}`}
-                className="bg-[#00BFFF] text-white px-4 py-2 rounded-md hover:bg-[#0099CC] transition-colors text-sm"
-              >
-                Create New Project
-              </Link>
             </div>
 
             {projects.length === 0 ? (

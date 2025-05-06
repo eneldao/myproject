@@ -1,39 +1,56 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+
+// Animation variants
+const pageVariants = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { duration: 0.5 } },
+  exit: { opacity: 0 },
+};
+
+const formItemVariants = {
+  initial: { y: 20, opacity: 0 },
+  animate: (i: number) => ({
+    y: 0,
+    opacity: 1,
+    transition: {
+      delay: i * 0.1,
+      duration: 0.5,
+    },
+  }),
+};
+
+// Service type icons & illustrations
+const serviceIcons = {
+  voiceover: "/images/microphone-icon.svg", // You'll need to create or source these SVG icons
+  dubbing: "/images/dubbing-icon.svg",
+  translator: "/images/translate-icon.svg",
+};
 
 export default function ProjectPage() {
   const searchParams = useSearchParams();
   const [projectData, setProjectData] = useState({
     title: "",
     description: "",
-    service_type: "dubbing", // Changed default to dubbing
+    service_type: "voiceover",
     budget: "",
-    language_from: "English",
-    language_to: "Spanish",
-    duration: "1-5", // In minutes
-    content_type: "video",
   });
   const [freelancerId, setFreelancerId] = useState("");
   const [clientId, setClientId] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 3;
+  const [activeStep, setActiveStep] = useState(0);
 
-  // Background animation properties
-  const waveVariants = {
-    animate: {
-      y: [0, -10, 0],
-      transition: {
-        duration: 2,
-        repeat: Infinity,
-        repeatType: "mirror" as const,
-      },
-    },
-  };
+  // Form steps
+  const formSteps = [
+    { name: "Basic Info", fields: ["title", "service_type"] },
+    { name: "Budget & Details", fields: ["budget", "description"] },
+    { name: "Review & Submit", fields: [] },
+  ];
 
   useEffect(() => {
     // Get the full URL path
@@ -63,14 +80,14 @@ export default function ProjectPage() {
   };
 
   const nextStep = () => {
-    if (currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
+    if (activeStep < formSteps.length - 1) {
+      setActiveStep(activeStep + 1);
     }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+    if (activeStep > 0) {
+      setActiveStep(activeStep - 1);
     }
   };
 
@@ -95,10 +112,6 @@ export default function ProjectPage() {
         budget: numericBudget,
         freelancer_id: freelancerId,
         client_id: clientId,
-        language_from: projectData.language_from,
-        language_to: projectData.language_to,
-        duration: projectData.duration,
-        content_type: projectData.content_type,
       };
 
       const response = await fetch("/api/projects", {
@@ -116,18 +129,13 @@ export default function ProjectPage() {
       }
 
       setSubmitSuccess(true);
-      // Reset form on successful submission
+      // Reset form on successful submission if desired
       setProjectData({
         title: "",
         description: "",
-        service_type: "dubbing",
+        service_type: "voiceover",
         budget: "",
-        language_from: "English",
-        language_to: "Spanish",
-        duration: "1-5",
-        content_type: "video",
       });
-      setCurrentStep(1);
     } catch (error) {
       console.error("Error submitting project:", error);
       setSubmitError(
@@ -138,69 +146,203 @@ export default function ProjectPage() {
     }
   };
 
-  // Determine service type icon
-  const getServiceIcon = (type: string) => {
-    switch (type) {
+  // Service illustration based on selected type
+  const getServiceIllustration = () => {
+    switch (projectData.service_type) {
       case "voiceover":
-        return "🎙️";
-      case "dubbing":
-        return "🎬";
-      case "translator":
-        return "🌐";
-      default:
-        return "🔊";
-    }
-  };
-
-  // Service-specific descriptions
-  const getServiceDescription = (type: string) => {
-    switch (type) {
-      case "voiceover":
-        return "Professional narration for your content";
-      case "dubbing":
-        return "Replace original audio with translated dialogue";
-      case "translator":
-        return "Written translation of your scripts or subtitles";
-      default:
-        return "Select a service type";
-    }
-  };
-
-  // Languages list
-  const languages = [
-    "English",
-    "Spanish",
-    "French",
-    "German",
-    "Italian",
-    "Portuguese",
-    "Japanese",
-    "Korean",
-    "Chinese",
-    "Russian",
-    "Arabic",
-    "Hindi",
-  ];
-
-  // Render form steps
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-medium text-purple-800">
-              Step 1: Basic Information
-            </h2>
+          <div className="relative h-32 w-full">
+            <div className="absolute top-0 left-0 h-full w-full flex items-center justify-center">
+              <motion.div
+                className="w-2 h-10 bg-purple-500 rounded-full mx-1"
+                animate={{
+                  height: [10, 40, 20, 30, 10],
+                  transition: { repeat: Infinity, duration: 1.5 },
+                }}
+              />
+              <motion.div
+                className="w-2 h-20 bg-purple-500 rounded-full mx-1"
+                animate={{
+                  height: [20, 10, 40, 15, 20],
+                  transition: { repeat: Infinity, duration: 1.2, delay: 0.2 },
+                }}
+              />
+              <motion.div
+                className="w-2 h-15 bg-purple-500 rounded-full mx-1"
+                animate={{
+                  height: [15, 30, 10, 35, 15],
+                  transition: { repeat: Infinity, duration: 1, delay: 0.3 },
+                }}
+              />
+              <motion.div
+                className="w-2 h-25 bg-purple-500 rounded-full mx-1"
+                animate={{
+                  height: [25, 5, 35, 15, 25],
+                  transition: { repeat: Infinity, duration: 1.3, delay: 0.5 },
+                }}
+              />
+              <motion.div
+                className="w-2 h-18 bg-purple-500 rounded-full mx-1"
+                animate={{
+                  height: [18, 40, 10, 30, 18],
+                  transition: { repeat: Infinity, duration: 1.1, delay: 0.1 },
+                }}
+              />
+            </div>
+          </div>
+        );
+      case "dubbing":
+        return (
+          <div className="relative h-32 w-full">
+            <motion.div
+              className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-indigo-600 rounded-full opacity-30"
+              animate={{
+                scale: [1, 1.2, 1],
+                opacity: [0.3, 0.5, 0.3],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
+            />
+            <motion.div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 flex items-center justify-center">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <motion.path
+                  d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                  fill="#4F46E5"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                />
+                <motion.path
+                  d="M19.9393 13C19.432 14.9361 18.3147 16.6681 16.7669 17.9083C15.2191 19.1486 13.3099 19.8217 11.3407 19.8218C9.37146 19.822 7.46226 19.1491 5.91431 17.909C4.36635 16.6689 3.2489 14.937 2.74138 13.001C2.23385 11.065 2.31839 9.01913 2.98406 7.13732C3.64973 5.25551 4.86383 3.63399 6.45653 2.47301C8.04922 1.31203 9.93656 0.66925 11.885 0.644551C13.8334 0.619853 15.7352 1.2142 17.3556 2.3495"
+                  stroke="#4F46E5"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  animate={{
+                    rotate: [0, 360],
+                    pathLength: [0.3, 0.5, 0.3],
+                  }}
+                  transition={{
+                    rotate: { repeat: Infinity, duration: 8 },
+                    pathLength: { repeat: Infinity, duration: 2 },
+                  }}
+                />
+                <motion.path
+                  d="M20 7V2M20 2L15 2M20 2L13 9"
+                  stroke="#4F46E5"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  animate={{ scale: [1, 0.9, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                />
+              </svg>
+            </motion.div>
+          </div>
+        );
+      case "translator":
+        return (
+          <div className="relative h-32 w-full flex items-center justify-center">
+            <motion.div
+              className="flex items-center space-x-2"
+              animate={{ x: [-10, 10, -10] }}
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            >
+              <div className="text-blue-500 text-lg font-bold">EN</div>
+              <motion.div
+                animate={{ rotate: [0, 360] }}
+                transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M7 7H17M17 7L13 3M17 7L13 11M17 17H7M7 17L11 13M7 17L11 21"
+                    stroke="#4F46E5"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </motion.div>
+              <div className="text-blue-500 text-lg font-bold">ES</div>
+            </motion.div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
-            <div>
+  // Background animation elements
+  const BackgroundElements = () => (
+    <div className="absolute inset-0 overflow-hidden -z-10">
+      <motion.div
+        className="absolute top-20 left-10 w-64 h-64 rounded-full bg-gradient-to-r from-blue-300/20 to-purple-300/20 blur-3xl"
+        animate={{
+          x: [0, 30, 0],
+          y: [0, -30, 0],
+        }}
+        transition={{ repeat: Infinity, duration: 15, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute bottom-20 right-10 w-80 h-80 rounded-full bg-gradient-to-r from-indigo-300/20 to-pink-300/20 blur-3xl"
+        animate={{
+          x: [0, -40, 0],
+          y: [0, 40, 0],
+        }}
+        transition={{ repeat: Infinity, duration: 20, ease: "easeInOut" }}
+      />
+      <motion.div
+        className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-gradient-to-r from-cyan-300/10 to-teal-300/10 blur-3xl"
+        animate={{
+          scale: [1, 1.1, 1],
+        }}
+        transition={{ repeat: Infinity, duration: 12, ease: "easeInOut" }}
+      />
+    </div>
+  );
+
+  // Progress bar component
+  const ProgressBar = () => (
+    <div className="w-full bg-gray-100 h-1 rounded-full mb-8">
+      <motion.div
+        className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full"
+        initial={{ width: "0%" }}
+        animate={{ width: `${((activeStep + 1) / formSteps.length) * 100}%` }}
+        transition={{ duration: 0.5 }}
+      />
+    </div>
+  );
+
+  // Render current step content
+  const renderStepContent = () => {
+    switch (activeStep) {
+      case 0:
+        return (
+          <>
+            <motion.div
+              custom={0}
+              variants={formItemVariants}
+              initial="initial"
+              animate="animate"
+              className="mb-6"
+            >
               <label
                 htmlFor="title"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Project Title
               </label>
@@ -210,264 +352,135 @@ export default function ProjectPage() {
                 name="title"
                 value={projectData.title}
                 onChange={handleInputChange}
-                placeholder="e.g. Corporate Training Video Dubbing"
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="e.g. Professional Voiceover for Corporate Video"
+                className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200"
                 required
               />
-            </div>
+            </motion.div>
 
-            <div>
+            <motion.div
+              custom={1}
+              variants={formItemVariants}
+              initial="initial"
+              animate="animate"
+              className="mb-8"
+            >
               <label
                 htmlFor="service_type"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Service Type
               </label>
-              <div className="mt-1 grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-4">
                 {["voiceover", "dubbing", "translator"].map((type) => (
-                  <div
+                  <motion.div
                     key={type}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() =>
                       setProjectData({ ...projectData, service_type: type })
                     }
-                    className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center transition-all ${
+                    className={`cursor-pointer rounded-xl border-2 ${
                       projectData.service_type === type
-                        ? "border-purple-500 bg-purple-50 shadow-md"
-                        : "border-gray-200 hover:border-purple-300 hover:bg-purple-50"
-                    }`}
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    } p-4 flex flex-col items-center transition-all duration-200`}
                   >
-                    <span className="text-3xl mb-2">
-                      {getServiceIcon(type)}
+                    <div
+                      className={`h-12 w-12 rounded-full ${
+                        projectData.service_type === type
+                          ? "bg-indigo-100"
+                          : "bg-gray-100"
+                      } flex items-center justify-center mb-3`}
+                    >
+                      {type === "voiceover" && (
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M12 18.5C15.5899 18.5 18.5 15.5899 18.5 12C18.5 8.41015 15.5899 5.5 12 5.5C8.41015 5.5 5.5 8.41015 5.5 12C5.5 15.5899 8.41015 18.5 12 18.5Z"
+                            stroke="#4F46E5"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                            fill="#4F46E5"
+                          />
+                        </svg>
+                      )}
+                      {type === "dubbing" && (
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z"
+                            fill="#4F46E5"
+                          />
+                          <path
+                            d="M19.4 15C18.7 16.8 17.3 18.2 15.5 18.9M4 15.5C4.7 17.3 6.2 18.7 8 19.4M4.6 9C5.3 7.2 6.7 5.8 8.5 5.1M15 5.6C16.8 6.3 18.2 7.8 18.9 9.6M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+                            stroke="#4F46E5"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                      {type === "translator" && (
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            d="M3 5H15M9 3V5M10.5 17L8 21M10.5 17L13 21M10.5 17L14 9.5L17.5 17M7 9.5L8 12M12 5L13.5 9.5M17 5H21M17 3V7M15 21L17.5 17M17.5 17L20 21"
+                            stroke="#4F46E5"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium capitalize">
+                      {type}
                     </span>
-                    <h3 className="font-medium capitalize">{type}</h3>
-                    <p className="text-xs text-gray-500 text-center mt-1">
-                      {getServiceDescription(type)}
-                    </p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="content_type"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Content Type
-              </label>
-              <select
-                id="content_type"
-                name="content_type"
-                value={projectData.content_type}
-                onChange={handleInputChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              >
-                <option value="video">Video Content</option>
-                <option value="audio">Audio Only</option>
-                <option value="podcast">Podcast</option>
-                <option value="commercial">Commercial</option>
-                <option value="film">Film/Movie</option>
-                <option value="elearning">E-Learning</option>
-                <option value="audiobook">Audiobook</option>
-              </select>
-            </div>
-
-            <div className="pt-4">
-              <button
-                type="button"
-                onClick={nextStep}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                Next Step
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 ml-2"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          </motion.div>
+            </motion.div>
+          </>
         );
 
-      case 2:
+      case 1:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-medium text-purple-800">
-              Step 2: Language & Details
-            </h2>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="language_from"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Source Language
-                </label>
-                <select
-                  id="language_from"
-                  name="language_from"
-                  value={projectData.language_from}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                >
-                  {languages.map((lang) => (
-                    <option key={`from-${lang}`} value={lang}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="language_to"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Target Language
-                </label>
-                <select
-                  id="language_to"
-                  name="language_to"
-                  value={projectData.language_to}
-                  onChange={handleInputChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                >
-                  {languages.map((lang) => (
-                    <option key={`to-${lang}`} value={lang}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label
-                htmlFor="duration"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Content Duration (minutes)
-              </label>
-              <select
-                id="duration"
-                name="duration"
-                value={projectData.duration}
-                onChange={handleInputChange}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              >
-                <option value="1-5">1-5 minutes</option>
-                <option value="5-15">5-15 minutes</option>
-                <option value="15-30">15-30 minutes</option>
-                <option value="30-60">30-60 minutes</option>
-                <option value="60+">60+ minutes</option>
-              </select>
-              <p className="mt-2 text-sm text-gray-500">
-                This helps us estimate the project scope and timeline.
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Project Description
-              </label>
-              <div className="mt-1">
-                <textarea
-                  id="description"
-                  name="description"
-                  value={projectData.description}
-                  onChange={handleInputChange}
-                  placeholder="Please describe your project requirements, target audience, preferred voice style/tone, and any specific instructions..."
-                  rows={6}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  required
-                ></textarea>
-              </div>
-              <p className="mt-2 text-sm text-gray-500">
-                Include details like script availability, reference materials,
-                or style preferences.
-              </p>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <button
-                type="button"
-                onClick={prevStep}
-                className="flex items-center justify-center py-3 px-6 border border-gray-300 rounded-md shadow-sm text-lg font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={nextStep}
-                className="flex items-center justify-center py-3 px-6 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                Next
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 ml-2"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
-          </motion.div>
-        );
-
-      case 3:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="space-y-6"
-          >
-            <h2 className="text-xl font-medium text-purple-800">
-              Step 3: Budget & Finalize
-            </h2>
-
-            <div>
+          <>
+            <motion.div
+              custom={0}
+              variants={formItemVariants}
+              initial="initial"
+              animate="animate"
+              className="mb-6"
+            >
               <label
                 htmlFor="budget"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Budget (USD)
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <div className="relative rounded-lg shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <span className="text-gray-500">$</span>
                 </div>
                 <input
@@ -477,140 +490,121 @@ export default function ProjectPage() {
                   value={projectData.budget}
                   onChange={handleInputChange}
                   placeholder="0.00"
-                  className="block w-full pl-8 border border-gray-300 rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="block w-full pl-10 border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   min="0"
                   step="0.01"
                   required
                 />
               </div>
+            </motion.div>
 
-              <div className="mt-4 bg-purple-50 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-purple-800">
-                  Budget Guidelines
-                </h3>
-                <ul className="mt-2 text-sm text-gray-600 space-y-1">
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>Voiceover: $100-300 per finished minute</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>Dubbing: $250-500 per finished minute</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>Translation: $0.10-0.25 per word</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
+            <motion.div
+              custom={1}
+              variants={formItemVariants}
+              initial="initial"
+              animate="animate"
+              className="mb-6"
+            >
+              <label
+                htmlFor="description"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Project Description
+              </label>
+              <textarea
+                id="description"
+                name="description"
+                value={projectData.description}
+                onChange={handleInputChange}
+                placeholder="Please describe your project requirements, timeline, and any specific instructions..."
+                rows={6}
+                className="block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                required
+              ></textarea>
+              <p className="mt-2 text-sm text-gray-500">
+                The more details you provide, the better your freelancer can
+                understand your needs.
+              </p>
+            </motion.div>
+          </>
+        );
 
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-medium text-gray-800">
-                Project Summary
-              </h3>
-              <dl className="mt-2 divide-y divide-gray-200">
-                <div className="py-2 flex justify-between">
-                  <dt className="text-sm font-medium text-gray-500">Service</dt>
-                  <dd className="text-sm font-medium text-gray-900 capitalize">
+      case 2:
+        return (
+          <>
+            <motion.div
+              custom={0}
+              variants={formItemVariants}
+              initial="initial"
+              animate="animate"
+              className="mb-8 border border-gray-100 rounded-xl p-6 bg-gray-50"
+            >
+              <h3 className="text-lg font-semibold mb-4">Project Summary</h3>
+
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Service Type:</span>
+                  <span className="font-medium capitalize">
                     {projectData.service_type}
-                  </dd>
+                  </span>
                 </div>
-                <div className="py-2 flex justify-between">
-                  <dt className="text-sm font-medium text-gray-500">
-                    Content Type
-                  </dt>
-                  <dd className="text-sm font-medium text-gray-900 capitalize">
-                    {projectData.content_type}
-                  </dd>
-                </div>
-                <div className="py-2 flex justify-between">
-                  <dt className="text-sm font-medium text-gray-500">
-                    Languages
-                  </dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {projectData.language_from} → {projectData.language_to}
-                  </dd>
-                </div>
-                <div className="py-2 flex justify-between">
-                  <dt className="text-sm font-medium text-gray-500">
-                    Duration
-                  </dt>
-                  <dd className="text-sm font-medium text-gray-900">
-                    {projectData.duration} minutes
-                  </dd>
-                </div>
-              </dl>
-            </div>
 
-            <div className="flex justify-between pt-4">
-              <button
-                type="button"
-                onClick={prevStep}
-                className="flex items-center justify-center py-3 px-6 border border-gray-300 rounded-md shadow-sm text-lg font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Back
-              </button>
-              <button
-                type="submit"
-                className="flex items-center justify-center py-3 px-6 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                {isSubmitting ? (
-                  <>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Title:</span>
+                  <span className="font-medium">{projectData.title}</span>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Budget:</span>
+                  <span className="font-medium">${projectData.budget}</span>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <span className="block text-gray-600 mb-2">Description:</span>
+                  <p className="text-gray-800">{projectData.description}</p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              custom={1}
+              variants={formItemVariants}
+              initial="initial"
+              animate="animate"
+              className="mb-4"
+            >
+              {(freelancerId || clientId) && (
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-md flex items-center">
+                  <div className="flex-shrink-0">
                     <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      className="h-5 w-5 text-blue-400"
                       xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    Create Project
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5 ml-2"
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
                       <path
                         fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z"
                         clipRule="evenodd"
                       />
                     </svg>
-                  </>
-                )}
-              </button>
-            </div>
-          </motion.div>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-blue-700">
+                      <span className="font-medium">
+                        Connection established:{" "}
+                      </span>
+                      {freelancerId && <span>Freelancer #{freelancerId}</span>}
+                      {freelancerId && clientId && (
+                        <span className="mx-1">•</span>
+                      )}
+                      {clientId && <span>Client #{clientId}</span>}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </>
         );
 
       default:
@@ -619,324 +613,263 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-purple-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        {[...Array(5)].map((_, i) => (
-          <motion.div
-            key={i}
-            variants={waveVariants}
-            animate="animate"
-            className="absolute opacity-10"
-            style={{
-              left: `${i * 20}%`,
-              top: `${(i * 15) % 100}%`,
-              width: "300px",
-              height: "300px",
-              borderRadius: "50%",
-              background: `radial-gradient(circle, rgba(139,92,246,0.8) 0%, rgba(139,92,246,0) 70%)`,
-              filter: "blur(40px)",
-              animationDelay: `${i * 0.5}s`,
-            }}
-          />
-        ))}
-
-        {/* Audio wave animation */}
-        <div className="absolute bottom-0 left-0 right-0 flex justify-center opacity-20">
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={i}
-              animate={{
-                height: [15, 40, 15],
-              }}
-              transition={{
-                duration: 1.2,
-                repeat: Infinity,
-                repeatType: "mirror",
-                delay: i * 0.05,
-              }}
-              className="w-2 mx-1 bg-purple-500 rounded-full"
-              style={{ height: 15 }}
-            />
-          ))}
-        </div>
-      </div>
+    <motion.div
+      className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 relative bg-gradient-to-b from-white to-indigo-50"
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      variants={pageVariants}
+    >
+      <BackgroundElements />
 
       <div className="max-w-3xl mx-auto">
-        {/* Progress Indicator */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {[...Array(totalSteps)].map((_, idx) => (
-              <div key={idx} className="flex items-center">
-                <div
-                  className={`rounded-full transition-colors flex items-center justify-center
-                    ${
-                      idx + 1 <= currentStep
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-200 text-gray-600"
-                    }
-                    ${
-                      idx + 1 === currentStep
-                        ? "h-10 w-10 shadow-md"
-                        : "h-8 w-8"
-                    }
-                  `}
-                >
-                  {idx + 1 < currentStep ? (
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    idx + 1
-                  )}
-                </div>
-                {idx < totalSteps - 1 && (
-                  <div
-                    className={`flex-1 h-1 mx-2 ${
-                      idx + 1 < currentStep ? "bg-purple-600" : "bg-gray-200"
-                    }`}
-                    style={{ width: "100px" }}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2">
-            <span className="text-sm font-medium text-gray-600">
-              Basic Info
+        <div className="text-center mb-12">
+          <motion.h1
+            className="text-3xl font-extrabold text-gray-900 sm:text-4xl"
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            Create Your{" "}
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+              Audio Project
             </span>
-            <span className="text-sm font-medium text-gray-600">Details</span>
-            <span className="text-sm font-medium text-gray-600">
-              Budget & Review
-            </span>
-          </div>
+          </motion.h1>
+          <motion.p
+            className="mt-3 text-lg text-gray-500 max-w-2xl mx-auto"
+            initial={{ y: -10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
+            Define your {projectData.service_type} project details and connect
+            with talent
+          </motion.p>
         </div>
 
         <motion.div
           className="bg-white rounded-2xl shadow-xl overflow-hidden"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Header Banner */}
-          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-8 py-8 text-white relative">
-            <div className="absolute right-0 top-0 h-full opacity-20">
-              {projectData.service_type === "voiceover" && (
-                <svg
-                  width="200"
-                  height="100%"
-                  viewBox="0 0 200 200"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M80 30v140M100 50v100M120 70v60"
-                    stroke="white"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-              {projectData.service_type === "dubbing" && (
-                <svg
-                  width="200"
-                  height="100%"
-                  viewBox="0 0 200 200"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M60 100h30M100 60v80M120 80v40M150 100h-30"
-                    stroke="white"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-              {projectData.service_type === "translator" && (
-                <svg
-                  width="200"
-                  height="100%"
-                  viewBox="0 0 200 200"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M60 70h80M60 100h60M60 130h40M140 70v60"
-                    stroke="white"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              )}
-            </div>
-            <h1 className="text-4xl font-bold tracking-tight">
-              Create New Project
-            </h1>
-            <p className="mt-3 text-purple-100 max-w-xl">
-              Define your {projectData.service_type} project details and connect
-              with professional talent in our network
-            </p>
-
-            <div className="flex items-center mt-6">
-              <span className="text-3xl mr-4">
-                {getServiceIcon(projectData.service_type)}
-              </span>
-              <div>
-                <p className="font-semibold text-lg capitalize">
-                  {projectData.service_type} Service
-                </p>
-                <p className="text-purple-100 text-sm">
-                  {getServiceDescription(projectData.service_type)}
-                </p>
+          <div className="px-6 py-8 md:p-10">
+            {/* Step indicators */}
+            <div className="mb-8">
+              <div className="flex justify-between mb-2">
+                {formSteps.map((step, index) => (
+                  <div key={index} className="flex flex-col items-center">
+                    <div
+                      className={`w-10 h-10 flex items-center justify-center rounded-full ${
+                        index === activeStep
+                          ? "bg-indigo-600 text-white"
+                          : index < activeStep
+                          ? "bg-indigo-200 text-indigo-800"
+                          : "bg-gray-200 text-gray-500"
+                      }`}
+                    >
+                      {index < activeStep ? (
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 13l4 4L19 7"
+                          ></path>
+                        </svg>
+                      ) : (
+                        <span>{index + 1}</span>
+                      )}
+                    </div>
+                    <span className="text-xs mt-2 text-gray-500">
+                      {step.name}
+                    </span>
+                  </div>
+                ))}
               </div>
+              <ProgressBar />
             </div>
-          </div>
 
-          {/* Connection Info Card */}
-          {(freelancerId || clientId) && (
-            <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 mx-6 mt-6 rounded-md flex items-center">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-indigo-600"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+            {/* Service illustration */}
+            <div className="mb-8">{getServiceIllustration()}</div>
+
+            {/* Form content */}
+            <form onSubmit={handleSubmit}>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeStep}
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -20, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2h-1V9z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm text-indigo-800">
-                  <span className="font-medium">Connection established:</span>
-                  {freelancerId && (
-                    <span className="ml-1">Talent #{freelancerId}</span>
-                  )}
-                  {freelancerId && clientId && <span className="mx-1">•</span>}
-                  {clientId && <span>Client #{clientId}</span>}
-                </p>
-              </div>
-            </div>
-          )}
+                  {renderStepContent()}
+                </motion.div>
+              </AnimatePresence>
 
-          {/* Status Messages */}
-          {submitError && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-6 mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-md"
-            >
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg
-                    className="h-5 w-5 text-red-500"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+              {/* Status messages */}
+              <AnimatePresence>
+                {submitError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-md"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{submitError}</p>
-                </div>
-              </div>
-            </motion.div>
-          )}
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="h-5 w-5 text-red-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-red-700">{submitError}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
-          {submitSuccess && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mx-6 mt-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-md"
-            >
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg
-                    className="h-5 w-5 text-green-500"
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+                {submitSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-md"
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-green-700">
-                    <span className="font-bold">Success!</span> Your project has
-                    been created. Our talent will be notified and will contact
-                    you shortly.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg
+                          className="h-5 w-5 text-green-400"
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <motion.p
+                          className="text-sm text-green-700"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.2 }}
+                        >
+                          Project created successfully! Your freelancer will be
+                          notified.
+                        </motion.p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-          {/* Form Section */}
-          <div className="px-8 py-6">
-            <form onSubmit={handleSubmit}>{renderStep()}</form>
+              {/* Form buttons */}
+              <div className="flex justify-between pt-6 border-t border-gray-100">
+                <motion.button
+                  type="button"
+                  onClick={prevStep}
+                  disabled={activeStep === 0}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`px-5 py-3 rounded-lg font-medium ${
+                    activeStep === 0
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Previous
+                </motion.button>
+
+                {activeStep < formSteps.length - 1 ? (
+                  <motion.button
+                    type="button"
+                    onClick={nextStep}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-5 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Continue
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    type="submit"
+                    disabled={isSubmitting}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`px-6 py-3 rounded-lg font-medium text-white ${
+                      isSubmitting
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center">
+                        <svg
+                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        Processing...
+                      </div>
+                    ) : (
+                      "Create Project"
+                    )}
+                  </motion.button>
+                )}
+              </div>
+            </form>
           </div>
         </motion.div>
 
-        {/* Media platform features */}
-        <div className="max-w-3xl mx-auto mt-12 grid grid-cols-3 gap-5">
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-purple-100 text-center">
-            <div className="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto">
-              <span className="text-xl">🔍</span>
-            </div>
-            <h3 className="mt-3 font-medium text-gray-900">Quality Talent</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Verified professionals with experience in audio production
-            </p>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-purple-100 text-center">
-            <div className="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto">
-              <span className="text-xl">🔒</span>
-            </div>
-            <h3 className="mt-3 font-medium text-gray-900">Secure Payments</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Pay only when you're completely satisfied with the work
-            </p>
-          </div>
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-purple-100 text-center">
-            <div className="bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto">
-              <span className="text-xl">⚡</span>
-            </div>
-            <h3 className="mt-3 font-medium text-gray-900">Fast Delivery</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Quick turnaround times with professional results
-            </p>
-          </div>
-        </div>
-
         {/* Footer help text */}
-        <div className="max-w-3xl mx-auto mt-8 text-center text-sm text-gray-500">
+        <motion.div
+          className="mt-8 text-center text-sm text-gray-500"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+        >
           <p>
-            Need help? Our audio production specialists are ready to assist you
-            at{" "}
-            <span className="text-purple-600 font-medium">
-              support@voicetalent.com
-            </span>
+            Need assistance?{" "}
+            <span className="text-indigo-600 font-medium hover:text-indigo-500 cursor-pointer">
+              Contact support
+            </span>{" "}
+            for help with your project.
           </p>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

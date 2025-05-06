@@ -1,5 +1,5 @@
 "use client";
-
+export const revalidate = 0;
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Freelancer, Project, ProjectMessage } from "@/lib/types";
@@ -28,44 +28,97 @@ export default function FreelancerProfile() {
   } | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Fetch freelancer and project data
-  useEffect(() => {
-    const fetchFreelancerData = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/freelancers/${freelancerId}`);
+  // Add this flag to control refetching
+  const [shouldRefetch, setShouldRefetch] = useState(false);
 
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
+  // Add this to create a data refresh counter
+  const [refreshCounter, setRefreshCounter] = useState(0);
+
+  // Modify the fetchFreelancerData function to be reusable
+  // Modified fetchFreelancerData to preserve selected project after refresh
+  const fetchFreelancerData = async () => {
+    try {
+      setLoading(true);
+      // Add cache-busting parameter to avoid browser caching
+      const response = await fetch(
+        `/api/freelancers/${freelancerId}?t=${new Date().getTime()}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setFreelancer(data.freelancer);
+      setProjects(data.projects || []);
+
+      // If there's a selected project, find it in the updated projects list
+      if (selectedProject) {
+        const updatedSelectedProject = data.projects.find(
+          (p: Project) => p.id === selectedProject.id
+        );
+
+        // If found, update the selected project with fresh data
+        if (updatedSelectedProject) {
+          setSelectedProject(updatedSelectedProject);
         }
-
-        const data = await response.json();
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        setFreelancer(data.freelancer);
-        setProjects(data.projects || []);
-
-        // Auto-select the first project if available
-        if (data.projects && data.projects.length > 0 && !selectedProject) {
+        // If not found and there are projects, select the first one
+        else if (data.projects && data.projects.length > 0) {
           setSelectedProject(data.projects[0]);
         }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred"
-        );
-        console.error("Failed to fetch freelancer data:", err);
-      } finally {
-        setLoading(false);
       }
-    };
+      // If no project is selected and there are projects, select the first one
+      else if (data.projects && data.projects.length > 0) {
+        setSelectedProject(data.projects[0]);
+      }
 
+      // Reset refetch flag
+      setShouldRefetch(false);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
+      console.error("Failed to fetch freelancer data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add this function to directly fetch a specific project
+  const fetchProjectById = async (projectId: string) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}`);
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status}`);
+      }
+
+      const updatedProject = await response.json();
+
+      setProjects((prevProjects) =>
+        prevProjects.map((project) =>
+          project.id === projectId ? updatedProject : project
+        )
+      );
+
+      if (selectedProject && selectedProject.id === projectId) {
+        setSelectedProject(updatedProject);
+      }
+    } catch (err) {
+      console.error("Failed to fetch updated project:", err);
+    }
+  };
+
+  useEffect(() => {
     if (freelancerId) {
       fetchFreelancerData();
     }
-  }, [freelancerId, selectedProject]);
+  }, [freelancerId, shouldRefetch, refreshCounter]);
 
   // Fetch messages when a project is selected
   useEffect(() => {
@@ -134,6 +187,9 @@ export default function FreelancerProfile() {
       // Add the new message to the list
       setMessages([...messages, data[0]]);
       setNewMessage("");
+
+      // Optionally refresh data after sending message
+      // setShouldRefetch(true);
     } catch (err) {
       console.error("Failed to send message:", err);
     } finally {
@@ -142,6 +198,7 @@ export default function FreelancerProfile() {
   };
 
   // Handler for updating project status
+  // Modified handleUpdateProjectStatus to force a full refresh after status update
   const handleUpdateProjectStatus = async (
     projectId: string,
     status: string
@@ -154,6 +211,7 @@ export default function FreelancerProfile() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ status }),
+        cache: "no-store", // Ensure no caching
       });
 
       if (!response.ok) {
@@ -162,20 +220,25 @@ export default function FreelancerProfile() {
 
       const updatedProject = await response.json();
 
-      // Update the projects list
+      // Update the projects list with the server's response
       setProjects(
         projects.map((project) =>
-          project.id === projectId ? { ...project, status } : project
+          project.id === projectId ? updatedProject : project
         )
       );
 
       // If the updated project is the selected project, update it as well
       if (selectedProject && selectedProject.id === projectId) {
-        setSelectedProject({ ...selectedProject, status });
+        setSelectedProject(updatedProject);
       }
 
       // Show success message
       setSuccessMessage(`Project status updated to ${status}`);
+
+      // Force a full refresh after a small delay to ensure DB has settled
+      setTimeout(() => {
+        setRefreshCounter((prev) => prev + 1);
+      }, 300);
     } catch (err) {
       console.error("Failed to update project status:", err);
       alert("Failed to update project status. Please try again.");

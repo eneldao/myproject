@@ -1,120 +1,96 @@
-// app/api/projects/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
+// GET a single project
 export async function GET(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const { id } = params;
+    console.log(`Fetching project with id: ${id}`);
 
-    // Get project by ID
     const { data, error } = await supabase
       .from("projects")
-      .select(
-        `
-        *,
-        freelancer:freelancer_id(*),
-        client:client_id(*)
-      `
-      )
-      .eq("id", params.id)
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) {
       console.error("Error fetching project:", error);
       return NextResponse.json(
-        { error: error.message },
-        { status: error.code === "PGRST116" ? 404 : 500 }
+        { error: "Failed to fetch project" },
+        { status: 500 }
       );
     }
 
-    return NextResponse.json(data);
+    if (!data) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Add cache control headers
+    const response = NextResponse.json(data);
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate"
+    );
+    return response;
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Error in project API:", error);
     return NextResponse.json(
-      { error: "An unexpected error occurred" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
 
+// UPDATE a project status
 export async function PUT(
-  request: NextRequest,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const { id } = params;
+    const body = await request.json();
 
-    // Check if user is authenticated
-    // const {
-    // data: { session },
-    //} = await supabase.auth.getSession();
+    console.log(`Updating project ${id} with data:`, body);
 
-    //if (!session) {
-    //return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    //}
-
-    // Get project update data from request
-    const updateData = await request.json();
+    if (Object.keys(body).length === 0) {
+      return NextResponse.json(
+        { error: "No fields to update" },
+        { status: 400 }
+      );
+    }
 
     // Update the project
     const { data, error } = await supabase
       .from("projects")
-      .update(updateData)
-      .eq("id", params.id)
+      .update(body)
+      .eq("id", id)
       .select()
       .single();
 
     if (error) {
       console.error("Error updating project:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to update project" },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Unexpected error:", error);
-    return NextResponse.json(
-      { error: "An unexpected error occurred" },
-      { status: 500 }
+    console.log("Updated project:", data);
+
+    // Add cache control headers
+    const response = NextResponse.json(data);
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate"
     );
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const supabase = createRouteHandlerClient({ cookies });
-
-    // Check if user is authenticated
-    ///const {
-    /// data: { session },
-    //} = await supabase.auth.getSession();
-
-    /// if (!session) {
-    // return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    //}
-
-    // Delete the project
-    const { error } = await supabase
-      .from("projects")
-      .delete()
-      .eq("id", params.id);
-
-    if (error) {
-      console.error("Error deleting project:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true });
+    return response;
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Error in project update API:", error);
     return NextResponse.json(
-      { error: "An unexpected error occurred" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

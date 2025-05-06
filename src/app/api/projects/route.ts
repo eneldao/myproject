@@ -6,16 +6,15 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const clientId = url.searchParams.get("client_id");
     const freelancerId = url.searchParams.get("freelancer_id");
+    console.log(
+      `Fetching projects - client_id: ${clientId}, freelancer_id: ${freelancerId}`
+    );
 
-    console.log(`Fetching projects - client_id: ${clientId}, freelancer_id: ${freelancerId}`);
-    
-    // Make sure to include only columns that exist in the table
     let query = supabase
       .from("projects")
       .select(
         "id, title, description, budget, status, freelancer_id, client_id, created_at"
       );
-
     if (clientId) {
       query = query.eq("client_id", clientId);
     }
@@ -36,7 +35,16 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json(projects || []);
+    // Add cache control headers to prevent browser caching
+    const response = NextResponse.json(projects || []);
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+
+    return response;
   } catch (error) {
     console.error("Error in GET projects:", error);
     return NextResponse.json(
@@ -64,7 +72,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create project in database
     const { data: project, error } = await supabase
       .from("projects")
       .insert({

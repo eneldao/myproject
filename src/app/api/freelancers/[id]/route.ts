@@ -9,6 +9,8 @@ export async function GET(
   try {
     const { id } = params;
 
+    console.log(`Fetching data for freelancer: ${id}`);
+
     // Fetch freelancer data
     const { data: freelancerData, error: freelancerError } = await supabase
       .from("freelancers")
@@ -50,11 +52,23 @@ export async function GET(
       );
     }
 
-    // Return both freelancer info and their projects
-    return NextResponse.json({
+    console.log(
+      `Found ${projectsData?.length || 0} projects for freelancer ${id}`
+    );
+
+    // Add cache control headers
+    const response = NextResponse.json({
       freelancer: freelancerData,
       projects: projectsData || [],
     });
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate, proxy-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+
+    return response;
   } catch (error) {
     console.error("Error in freelancer API:", error);
     return NextResponse.json(

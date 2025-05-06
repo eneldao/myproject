@@ -10,6 +10,13 @@ export async function GET(req: Request) {
     const offset = url.searchParams.get("offset");
     const search = url.searchParams.get("search");
 
+    console.log(`Fetching freelancers, params:`, {
+      freelancerId,
+      limit,
+      offset,
+      search,
+    });
+
     let query = supabase.from("freelancers").select("*");
 
     // Apply search filter if provided
@@ -33,7 +40,7 @@ export async function GET(req: Request) {
         );
       }
 
-      // Get projects for this freelancer
+      // Get projects for this freelancer with fresh data
       const { data: projects, error: projectsError } = await supabase
         .from("projects")
         .select("*")
@@ -43,10 +50,16 @@ export async function GET(req: Request) {
         console.error("Error fetching projects:", projectsError);
       }
 
-      return NextResponse.json({
+      // Add cache control headers
+      const response = NextResponse.json({
         freelancer,
         projects: projects || [],
       });
+      response.headers.set(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate"
+      );
+      return response;
     }
 
     // Apply pagination if provided
@@ -75,7 +88,8 @@ export async function GET(req: Request) {
       .from("freelancers")
       .select("*", { count: "exact", head: true });
 
-    return NextResponse.json({
+    // Add cache control headers
+    const response = NextResponse.json({
       freelancers,
       pagination: {
         total: totalCount,
@@ -83,6 +97,11 @@ export async function GET(req: Request) {
         offset: offset ? parseInt(offset, 10) : 0,
       },
     });
+    response.headers.set(
+      "Cache-Control",
+      "no-store, no-cache, must-revalidate"
+    );
+    return response;
   } catch (error) {
     console.error("Error in freelancers API:", error);
     return NextResponse.json(
