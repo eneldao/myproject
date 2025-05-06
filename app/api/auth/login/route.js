@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
+// The dynamic export must be a literal string, not a variable
+export const dynamic = "force-dynamic";
+
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
@@ -40,6 +43,3 @@ export async function POST(request) {
     );
   }
 }
-
-// Required to identify this file as a Next.js API route module
-export const dynamic = "force-dynamic";
