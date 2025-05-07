@@ -23,11 +23,12 @@ const ClientMessages = ({ projects, clientId }: ClientMessagesProps) => {
 
       try {
         const response = await fetch(
-          `/api/messages?project_id=${selectedProject.id}`
+          `/api/project-messages?project_id=${selectedProject.id}`
         );
 
         if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Error: ${response.status}`);
         }
 
         const data = await response.json();
@@ -55,19 +56,16 @@ const ClientMessages = ({ projects, clientId }: ClientMessagesProps) => {
     setSendingMessage(true);
 
     try {
-      const messageData = {
-        project_id: selectedProject.id,
-        sender_id: clientId,
-        content: newMessage.trim(),
-        created_at: new Date().toISOString(),
-      };
-
-      const response = await fetch("/api/messages", {
+      const response = await fetch("/api/project-messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(messageData),
+        body: JSON.stringify({
+          project_id: selectedProject.id,
+          sender_id: clientId,
+          content: newMessage.trim(),
+        }),
       });
 
       if (!response.ok) {
@@ -78,7 +76,12 @@ const ClientMessages = ({ projects, clientId }: ClientMessagesProps) => {
       const data = await response.json();
 
       // Add the new message to the list
-      setMessages([...messages, data[0]]);
+      if (data[0]) {
+        setMessages((prevMessages) => [...prevMessages, data[0]]);
+      } else if (data.message) {
+        setMessages((prevMessages) => [...prevMessages, data.message]);
+      }
+
       setNewMessage("");
       setMessageSent(true);
 

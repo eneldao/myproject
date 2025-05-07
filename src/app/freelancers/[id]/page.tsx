@@ -164,33 +164,32 @@ export default function FreelancerProfile() {
 
     setSendingMessage(true);
     try {
-      const messageData = {
-        project_id: selectedProject.id,
-        sender_id: freelancerId,
-        content: newMessage.trim(),
-        created_at: new Date().toISOString(),
-      };
-
-      const response = await fetch("/api/messages", {
+      const response = await fetch("/api/project-messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(messageData),
+        body: JSON.stringify({
+          project_id: selectedProject.id,
+          sender_id: freelancerId,
+          content: newMessage.trim(),
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error: ${response.status}`);
       }
 
       const data = await response.json();
 
       // Add the new message to the list
-      setMessages([...messages, data[0]]);
+      if (data[0]) {
+        setMessages((prev) => [...prev, data[0]]);
+      } else if (data.message) {
+        setMessages((prev) => [...prev, data.message]);
+      }
       setNewMessage("");
-
-      // Optionally refresh data after sending message
-      // setShouldRefetch(true);
     } catch (err) {
       console.error("Failed to send message:", err);
     } finally {

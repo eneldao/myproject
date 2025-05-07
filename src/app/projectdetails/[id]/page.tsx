@@ -45,8 +45,13 @@ export default function ProjectDetailsPage() {
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        const response = await fetch(`/api/messages?project_id=${projectId}`);
-        if (!response.ok) throw new Error("Failed to fetch messages");
+        const response = await fetch(
+          `/api/project-messages?project_id=${projectId}`
+        );
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to fetch messages");
+        }
         const data = await response.json();
         setMessages(data);
       } catch (err) {
@@ -65,19 +70,27 @@ export default function ProjectDetailsPage() {
 
     try {
       setSendingMessage(true);
-      const response = await fetch("/api/messages", {
+      const response = await fetch("/api/project-messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: projectId,
           content: newMessage,
-          sender_id: project.client_id, // Adjust based on your auth context
+          sender_id: project.client_id,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to send message");
+      }
+
       const data = await response.json();
-      setMessages((prev) => [...prev, data]);
+      if (data[0]) {
+        setMessages((prev) => [...prev, data[0]]);
+      } else if (data.message) {
+        setMessages((prev) => [...prev, data.message]);
+      }
       setNewMessage("");
     } catch (err) {
       console.error("Error sending message:", err);

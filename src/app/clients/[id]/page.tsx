@@ -315,9 +315,10 @@ export default function ClientPage() {
   }, [id, selectedProject]);
 
   // Add a function to send a test message
-  const handleSendTestMessage = async () => {
-    if (!selectedProject) {
-      setMessageError("Please select a project first");
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject || !messageContent.trim()) {
+      setMessageError("Please select a project and enter a message");
       return;
     }
 
@@ -325,15 +326,13 @@ export default function ClientPage() {
       setSendingMessage(true);
       setMessageError("");
 
-      const testMessage = `This is a test message for project ${selectedProject}. Sent at ${new Date().toLocaleString()}`;
-
       const response = await fetch("/api/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          content: testMessage,
+          content: messageContent,
           project_id: selectedProject,
           sender_id: id,
         }),
@@ -342,12 +341,12 @@ export default function ClientPage() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(
-          errorData.error || `Failed to send test message: ${response.status}`
+          errorData.error || `Failed to send message: ${response.status}`
         );
       }
 
       const data = await response.json();
-      console.log("Test message response:", data);
+      console.log("Message response:", data);
 
       // Add the new message to the messages state
       if (data[0]) {
@@ -356,27 +355,23 @@ export default function ClientPage() {
         setMessages((prevMessages) => [...prevMessages, data.message]);
       }
 
+      // Clear the message input
+      setMessageContent("");
       setMessageSent(true);
-      setDebugInfo("Test message sent successfully!");
 
       // Hide the success message after 3 seconds
       setTimeout(() => {
         setMessageSent(false);
       }, 3000);
 
-      // Refresh messages after sending test message
+      // Refresh messages after sending
       setTimeout(() => {
         fetchClientMessages();
       }, 500);
     } catch (err) {
-      console.error("Error sending test message:", err);
+      console.error("Error sending message:", err);
       setMessageError(
-        err instanceof Error ? err.message : "Failed to send test message"
-      );
-      setDebugInfo(
-        `Error sending test message: ${
-          err instanceof Error ? err.message : String(err)
-        }`
+        err instanceof Error ? err.message : "Failed to send message"
       );
     } finally {
       setSendingMessage(false);
@@ -1159,16 +1154,6 @@ export default function ClientPage() {
                             <strong>Debug info:</strong> {debugInfo}
                           </div>
                         )}
-
-                        <button
-                          onClick={handleSendTestMessage}
-                          disabled={sendingMessage}
-                          className="bg-gray-200 text-gray-800 py-1 px-3 rounded text-sm hover:bg-gray-300 transition-colors"
-                        >
-                          {sendingMessage
-                            ? "Sending..."
-                            : "Send a test message"}
-                        </button>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -1200,7 +1185,7 @@ export default function ClientPage() {
                   </div>
 
                   {/* Message Input */}
-                  <form onSubmit={handleSendTestMessage} className="mt-4">
+                  <form onSubmit={handleSendMessage} className="mt-4">
                     <div className="flex flex-col space-y-2">
                       <textarea
                         value={messageContent}
