@@ -1,25 +1,41 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
+interface FreelancerRevenue {
+  freelancer_id: string;
+  amount: string;
+  freelancers: { email: any }[];
+}
+
+interface ClientRevenue {
+  client_id: string;
+  amount: string;
+  clients: { email: any }[];
+}
+
+interface ProjectTransaction {
+  id: string;
+  amount: string;
+  transaction_date: string;
+  project_id: string;
+  projects: {
+    title: any;
+    description: any;
+    status: any;
+  }[];
+}
+
 export async function GET(request: Request) {
   try {
     // Initialize default values for all stats
     let totalRevenue = 0;
     let transactionsCount = 0;
-    let freelancersData: string | any[] = [];
-    let clientsData: string | any[] = [];
-    let recentTransactions: {
-      id: any;
-      amount: any;
-      status: any;
-      created_at: any;
-      project_id: any;
-      client_id: any;
-      freelancer_id: any;
-    }[] = [];
+    let freelancersData: any[] = [];
+    let clientsData: any[] = [];
+    let recentTransactions: any[] = [];
     let revenueByMonth = {};
 
-    // Try to get platform revenue data, but don't throw errors
+    // Get total revenue from platform_revenue table
     try {
       const { data: revenueData, error: revenueError } = await supabase
         .from("platform_revenue")
@@ -27,171 +43,183 @@ export async function GET(request: Request) {
 
       if (!revenueError && revenueData) {
         totalRevenue = revenueData.reduce(
-          (sum, item) => sum + (item.amount || 0),
+          (sum, item) => sum + parseFloat(item.amount),
           0
-        );
-      } else {
-        console.log(
-          "Note: platform_revenue table may not exist or is empty:",
-          revenueError
         );
       }
     } catch (err) {
       console.warn("Could not fetch platform revenue:", err);
     }
 
-    // Try to get transaction count, but don't throw errors
+    // Get transaction count from platform_revenue table
     try {
       const { count, error } = await supabase
-        .from("payments")
+        .from("platform_revenue")
         .select("*", { count: "exact", head: true });
 
       if (!error) {
         transactionsCount = count || 0;
-      } else {
-        console.log("Note: payments table may not exist:", error);
       }
     } catch (err) {
       console.warn("Could not fetch transactions count:", err);
     }
 
-    // Get freelancer stats - fixed query with proper spacing in the alias
+    // Get top freelancers by revenue
     try {
-      const { data, error } = await supabase
-        .from("freelancers")
-        .select("id, full_name as name, balance")
-        .order("balance", { ascending: false });
+      const { data: freelancerRevenue, error: freelancerError } =
+        await supabase.from("platform_revenue").select(`
+          freelancer_id,
+          amount,
+          freelancers (
+            email
+          )
+        `);
 
-      if (!error) {
-        freelancersData = data || [];
-      } else {
-        console.log("Could not fetch freelancer data:", error);
-
-        // Fallback query without alias
-        try {
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from("freelancers")
-            .select("id, full_name, balance")
-            .order("balance", { ascending: false });
-
-          if (!fallbackError && fallbackData) {
-            // Transform the data to match expected structure
-            freelancersData = fallbackData.map((item) => ({
-              id: item.id,
-              name: item.full_name,
-              balance: item.balance,
-            }));
+      if (!freelancerError && freelancerRevenue) {
+        const freelancerTotals = (
+          freelancerRevenue as unknown as FreelancerRevenue[]
+        ).reduce((acc, transaction) => {
+          const id = transaction.freelancer_id;
+          if (!acc[id]) {
+            acc[id] = {
+              id,
+              name:
+                transaction.freelancers[0]?.email?.split("@")[0] || "Anonymous",
+              balance: 0,
+            };
           }
-        } catch (fallbackErr) {
-          console.warn("Fallback freelancer query failed:", fallbackErr);
-        }
+          acc[id].balance += parseFloat(transaction.amount);
+          return acc;
+        }, {} as Record<string, any>);
+
+        freelancersData = Object.values(freelancerTotals)
+          .sort((a, b) => b.balance - a.balance)
+          .slice(0, 5);
       }
     } catch (err) {
       console.warn("Could not fetch freelancer stats:", err);
     }
 
-    // Get client stats - fixed query with proper spacing in the alias
+    // Get top clients by spending
     try {
-      const { data, error } = await supabase
-        .from("clients")
-        .select("id, contact_name as name, balance")
-        .order("balance", { ascending: false });
+      const { data: clientRevenue, error: clientError } = await supabase.from(
+        "platform_revenue"
+      ).select(`
+          client_id,
+          amount,
+          clients (
+            email
+          )
+        `);
 
-      if (!error) {
-        clientsData = data || [];
-      } else {
-        console.log("Could not fetch client data:", error);
-
-        // Fallback query without alias
-        try {
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from("clients")
-            .select("id, contact_name, balance")
-            .order("balance", { ascending: false });
-
-          if (!fallbackError && fallbackData) {
-            // Transform the data to match expected structure
-            clientsData = fallbackData.map((item) => ({
-              id: item.id,
-              name: item.contact_name,
-              balance: item.balance,
-            }));
+      if (!clientError && clientRevenue) {
+        const clientTotals = (
+          clientRevenue as unknown as ClientRevenue[]
+        ).reduce((acc, transaction) => {
+          const id = transaction.client_id;
+          if (!acc[id]) {
+            acc[id] = {
+              id,
+              name: transaction.clients[0]?.email?.split("@")[0] || "Anonymous",
+              balance: 0,
+            };
           }
-        } catch (fallbackErr) {
-          console.warn("Fallback client query failed:", fallbackErr);
-        }
+          acc[id].balance += parseFloat(transaction.amount);
+          return acc;
+        }, {} as Record<string, any>);
+
+        clientsData = Object.values(clientTotals)
+          .sort((a, b) => b.balance - a.balance)
+          .slice(0, 5);
       }
     } catch (err) {
       console.warn("Could not fetch client stats:", err);
     }
 
-    // Get recent transactions
+    // Get recent transactions with project details
     try {
       const { data, error } = await supabase
-        .from("payments")
+        .from("platform_revenue")
         .select(
           `
-          id, 
-          amount, 
-          status, 
-          created_at, 
-          project_id, 
-          client_id, 
-          freelancer_id
+          id,
+          amount,
+          transaction_date,
+          project_id,
+          projects (
+            title,
+            description,
+            status
+          )
         `
         )
-        .order("created_at", { ascending: false })
+        .order("transaction_date", { ascending: false })
         .limit(10);
 
-      if (!error) {
-        recentTransactions = data || [];
-      } else {
-        console.log("Note: Could not fetch recent transactions:", error);
+      if (!error && data) {
+        recentTransactions = (data as unknown as ProjectTransaction[]).map(
+          (transaction) => ({
+            id: transaction.id,
+            amount: parseFloat(transaction.amount),
+            status: transaction.projects[0]?.status || "pending",
+            created_at: transaction.transaction_date,
+            project_id: transaction.project_id,
+            title:
+              transaction.projects[0]?.title ||
+              `Project #${transaction.project_id}`,
+            description: transaction.projects[0]?.description,
+          })
+        );
       }
     } catch (err) {
       console.warn("Could not fetch recent transactions:", err);
     }
 
-    // Get revenue by month
+    // Get revenue by month from platform_revenue
     try {
       const { data, error } = await supabase
         .from("platform_revenue")
         .select("amount, transaction_date");
 
       if (!error && data) {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
         revenueByMonth = data.reduce((acc, item) => {
-          if (!item.transaction_date) return acc;
+          const date = new Date(item.transaction_date);
+          if (date < sixMonthsAgo) return acc;
 
-          try {
-            const date = new Date(item.transaction_date);
-            const month = date.getMonth();
-            const year = date.getFullYear();
-            const key = `${year}-${month + 1}`;
-
-            if (!acc[key]) acc[key] = 0;
-            acc[key] += item.amount || 0;
-          } catch (err) {
-            console.warn("Error processing transaction date:", err);
-          }
-
+          const key = date.toLocaleString("default", {
+            month: "long",
+            year: "numeric",
+          });
+          if (!acc[key]) acc[key] = 0;
+          acc[key] += parseFloat(item.amount);
           return acc;
         }, {} as Record<string, number>);
-      } else {
-        console.log("Note: Could not fetch monthly revenue data:", error);
       }
     } catch (err) {
       console.warn("Could not fetch revenue by month:", err);
     }
+
+    // Get total counts
+    const [{ count: freelancersCount }, { count: clientsCount }] =
+      await Promise.all([
+        supabase
+          .from("freelancers")
+          .select("*", { count: "exact", head: true }),
+        supabase.from("clients").select("*", { count: "exact", head: true }),
+      ]);
 
     return NextResponse.json({
       success: true,
       stats: {
         totalRevenue,
         transactionsCount,
-        freelancersCount: freelancersData.length,
-        clientsCount: clientsData.length,
-        topFreelancers: freelancersData.slice(0, 5),
-        topClients: clientsData.slice(0, 5),
+        freelancersCount: freelancersCount || 0,
+        clientsCount: clientsCount || 0,
+        topFreelancers: freelancersData,
+        topClients: clientsData,
         recentTransactions,
         revenueByMonth,
       },

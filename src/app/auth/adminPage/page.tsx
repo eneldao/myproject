@@ -8,10 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  BarChart,
-  Bar,
   LineChart,
   Line,
   XAxis,
@@ -21,7 +18,14 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  FileText,
+  Users,
+  DollarSign,
+  RefreshCw,
+  AlertCircle,
+} from "lucide-react";
 
 interface AdminStats {
   totalRevenue: number;
@@ -36,8 +40,8 @@ interface AdminStats {
     status: string;
     created_at: string;
     project_id: string;
-    client_id: string;
-    freelancer_id: string;
+    title: string;
+    description: string;
   }>;
   revenueByMonth: Record<string, number>;
 }
@@ -46,225 +50,356 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchStats = async () => {
+    try {
+      setRefreshing(true);
+      const response = await fetch("/api/admin/stats");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch admin statistics");
+      }
+
+      setStats(data.stats);
+      setError(null);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred"
+      );
+      console.error("Error fetching admin statistics:", err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/admin/stats");
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to fetch admin statistics");
-        }
-
-        setStats(data.stats);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "An unknown error occurred"
-        );
-        console.error("Error fetching admin statistics:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchStats();
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(fetchStats, 300000);
+    return () => clearInterval(interval);
   }, []);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(value);
+  };
 
   const formatMonthlyData = () => {
     if (!stats?.revenueByMonth) return [];
-
-    return Object.entries(stats.revenueByMonth).map(([month, amount]) => ({
-      month,
-      revenue: amount,
-    }));
+    return Object.entries(stats.revenueByMonth)
+      .sort((a, b) => {
+        const dateA = new Date(a[0]);
+        const dateB = new Date(b[0]);
+        return dateA.getTime() - dateB.getTime();
+      })
+      .map(([month, amount]) => ({
+        month,
+        revenue: amount,
+      }));
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading admin statistics...</span>
-      </div>
-    );
-  }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
-  if (error) {
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "completed":
+        return "text-green-600 bg-green-100";
+      case "pending":
+        return "text-amber-600 bg-amber-100";
+      case "cancelled":
+        return "text-red-600 bg-red-100";
+      default:
+        return "text-gray-600 bg-gray-100";
+    }
+  };
+
+  if (loading && !stats) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-500">Error</h2>
-          <p className="mt-2">{error}</p>
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading dashboard...</span>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <h1 className="mb-6 text-3xl font-bold">Admin Dashboard</h1>
+    <div className="container mx-auto py-10 px-4">
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-bold text-gray-900">
+            Platform Overview
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Real-time statistics and performance metrics
+          </p>
+        </div>
+        <button
+          onClick={fetchStats}
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw
+            className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </button>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        <Card>
+      {error && (
+        <div className="mb-8 rounded-lg bg-red-50 p-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <p className="ml-3 text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <Card className="bg-gradient-to-br from-blue-50 to-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Platform Revenue
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${stats?.totalRevenue.toFixed(2)}
+            <div className="flex items-center">
+              <DollarSign className="h-8 w-8 text-blue-500" />
+              <div className="ml-4">
+                <div className="text-2xl font-bold text-gray-900">
+                  {formatCurrency(stats?.totalRevenue || 0)}
+                </div>
+                <p className="text-xs text-gray-500">Total earnings</p>
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="bg-gradient-to-br from-green-50 to-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Transactions</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Projects
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.transactionsCount}</div>
+            <div className="flex items-center">
+              <FileText className="h-8 w-8 text-green-500" />
+              <div className="ml-4">
+                <div className="text-2xl font-bold text-gray-900">
+                  {stats?.transactionsCount || 0}
+                </div>
+                <p className="text-xs text-gray-500">Active and completed</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Freelancers</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Freelancers
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.freelancersCount}</div>
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-purple-500" />
+              <div className="ml-4">
+                <div className="text-2xl font-bold text-gray-900">
+                  {stats?.freelancersCount || 0}
+                </div>
+                <p className="text-xs text-gray-500">Registered freelancers</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-        <Card>
+
+        <Card className="bg-gradient-to-br from-amber-50 to-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Clients</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Clients
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats?.clientsCount}</div>
+            <div className="flex items-center">
+              <Users className="h-8 w-8 text-amber-500" />
+              <div className="ml-4">
+                <div className="text-2xl font-bold text-gray-900">
+                  {stats?.clientsCount || 0}
+                </div>
+                <p className="text-xs text-gray-500">Active clients</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-        </TabsList>
+      <div className="grid gap-6 lg:grid-cols-2 mb-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue Trend</CardTitle>
+            <CardDescription>
+              Monthly platform revenue (last 6 months)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="h-[400px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={formatMonthlyData()}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="month"
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                  minTickGap={30}
+                />
+                <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                <Tooltip
+                  formatter={(value) => [
+                    formatCurrency(value as number),
+                    "Revenue",
+                  ]}
+                  labelStyle={{ color: "#374151" }}
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #E5E7EB",
+                    borderRadius: "0.375rem",
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#4f46e5"
+                  strokeWidth={2}
+                  dot={{ fill: "#4f46e5" }}
+                  name="Monthly Revenue"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="revenue" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Revenue</CardTitle>
-              <CardDescription>
-                Platform fees collected from transactions (2% of each
-                transaction)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={formatMonthlyData()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`$${value}`, "Revenue"]} />
-                  <Legend />
-                  <Bar
-                    dataKey="revenue"
-                    fill="#8884d8"
-                    name="Platform Revenue"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="users" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Freelancers</CardTitle>
-                <CardDescription>
-                  Freelancers with highest balances
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {stats?.topFreelancers.map((freelancer) => (
-                    <div
-                      key={freelancer.id}
-                      className="flex items-center justify-between"
-                    >
-                      <div>{freelancer.name}</div>
-                      <div className="font-medium">
-                        ${freelancer.balance.toFixed(2)}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Projects</CardTitle>
+            <CardDescription>Latest platform activities</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats?.recentTransactions.slice(0, 5).map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="flex flex-col p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 truncate">
+                        {transaction.title ||
+                          `Project #${transaction.project_id}`}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-0.5">
+                        {formatDate(transaction.created_at)}
                       </div>
                     </div>
-                  ))}
+                    <div className="flex items-center space-x-2 ml-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          transaction.status
+                        )}`}
+                      >
+                        {transaction.status}
+                      </span>
+                      <span className="font-medium text-gray-900 whitespace-nowrap">
+                        {formatCurrency(transaction.amount)}
+                      </span>
+                    </div>
+                  </div>
+                  {transaction.description && (
+                    <div className="text-sm text-gray-500 truncate">
+                      {transaction.description}
+                    </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Top Clients</CardTitle>
-                <CardDescription>Clients with highest spend</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {stats?.topClients.map((client) => (
-                    <div
-                      key={client.id}
-                      className="flex items-center justify-between"
-                    >
-                      <div>{client.name}</div>
-                      <div className="font-medium">
-                        ${client.balance.toFixed(2)}
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Earning Freelancers</CardTitle>
+            <CardDescription>Based on total earnings</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats?.topFreelancers.map((freelancer) => (
+                <div
+                  key={freelancer.id}
+                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {freelancer.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {formatCurrency(freelancer.balance)} earned
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <TabsContent value="transactions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Transactions</CardTitle>
-              <CardDescription>
-                The most recent platform transactions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <table className="w-full">
-                  <thead>
-                    <tr>
-                      <th className="text-left">Date</th>
-                      <th className="text-left">Amount</th>
-                      <th className="text-left">Status</th>
-                      <th className="text-left">Project ID</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats?.recentTransactions.map((transaction) => (
-                      <tr key={transaction.id}>
-                        <td>
-                          {new Date(
-                            transaction.created_at
-                          ).toLocaleDateString()}
-                        </td>
-                        <td>${transaction.amount.toFixed(2)}</td>
-                        <td>{transaction.status}</td>
-                        <td>{transaction.project_id}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Clients</CardTitle>
+            <CardDescription>Based on project spend</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {stats?.topClients.map((client) => (
+                <div
+                  key={client.id}
+                  className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors border border-gray-100"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {client.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {formatCurrency(client.balance)} spent
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

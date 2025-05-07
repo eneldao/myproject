@@ -3,6 +3,7 @@ export const revalidate = 0;
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Freelancer, Project, ProjectMessage } from "@/lib/types";
+import AnimatedBackground from "@/components/AnimatedBackground";
 
 export default function FreelancerProfile() {
   const params = useParams();
@@ -301,6 +302,28 @@ export default function FreelancerProfile() {
     }
   };
 
+  // Add this helper function near other helper functions
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((word) => word[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      "from-blue-500 to-indigo-500",
+      "from-emerald-500 to-teal-500",
+      "from-purple-500 to-pink-500",
+      "from-amber-500 to-orange-500",
+      "from-rose-500 to-red-500",
+    ];
+    const index = name.length % colors.length;
+    return colors[index];
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center">
@@ -383,8 +406,9 @@ export default function FreelancerProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 py-10">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 py-10 relative">
+      <AnimatedBackground />
+      <div className="container mx-auto px-4 relative z-10">
         {/* Success Message Toast */}
         {successMessage && (
           <div className="fixed top-4 right-4 z-50 bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded shadow-md transition-opacity duration-500 flex items-center">
@@ -405,38 +429,60 @@ export default function FreelancerProfile() {
         )}
 
         {/* Freelancer Profile Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 transform transition-all duration-300 hover:shadow-xl">
           <div className="flex flex-col md:flex-row">
             <div className="md:w-1/3 flex flex-col items-center md:items-start md:pr-8 md:border-r border-gray-200">
-              <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 flex-shrink-0 mb-4 shadow-md border-2 border-white">
-                {freelancer.avatar_url ? (
-                  <img
-                    src={freelancer.avatar_url}
-                    alt={freelancer.full_name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-blue-600 text-white text-2xl font-bold">
-                    {freelancer.full_name?.charAt(0) || "F"}
-                  </div>
-                )}
+              {/* Enhanced Avatar with fallback */}
+              <div className="relative group">
+                <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 flex-shrink-0 mb-4 shadow-md border-2 border-white transition-transform duration-300 transform group-hover:scale-105">
+                  {freelancer.avatar_url ? (
+                    <img
+                      src={freelancer.avatar_url}
+                      alt={freelancer.full_name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          freelancer.full_name
+                        )}&background=random&color=fff&size=128&bold=true`;
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${getAvatarColor(
+                        freelancer.full_name
+                      )} text-white text-2xl font-bold`}
+                    >
+                      {getInitials(freelancer.full_name)}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <h1 className="text-3xl font-bold text-gray-800 text-center md:text-left">
+              {/* Enhanced Profile Info */}
+              <h1 className="text-3xl font-bold text-gray-800 text-center md:text-left mb-2">
                 {freelancer.full_name}
               </h1>
               <p className="text-blue-600 font-medium text-lg mb-4 text-center md:text-left">
                 {freelancer.title || "Freelance Professional"}
               </p>
 
+              {/* Stats Grid with Balance */}
               <div className="w-full mt-4 grid grid-cols-2 gap-x-4 gap-y-6">
-                <div>
+                <div className="col-span-2 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg p-4 text-white transform transition-all duration-300 hover:scale-105">
+                  <p className="text-sm opacity-90">Available Balance</p>
+                  <p className="font-bold text-2xl">
+                    ${freelancer.balance || "0.00"}
+                  </p>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-3 transform transition-all duration-300 hover:bg-gray-100">
                   <p className="text-sm text-gray-500">Hourly Rate</p>
                   <p className="font-semibold text-gray-900">
                     ${freelancer.hourly_rate || "N/A"}
                   </p>
                 </div>
-                <div>
+
+                <div className="bg-gray-50 rounded-lg p-3 transform transition-all duration-300 hover:bg-gray-100">
                   <p className="text-sm text-gray-500">Rating</p>
                   <div className="flex items-center">
                     <span className="font-semibold text-gray-900 mr-1">
@@ -458,13 +504,15 @@ export default function FreelancerProfile() {
                     )}
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">Projects Completed</p>
+
+                <div className="bg-gray-50 rounded-lg p-3 transform transition-all duration-300 hover:bg-gray-100">
+                  <p className="text-sm text-gray-500">Projects Done</p>
                   <p className="font-semibold text-gray-900">
                     {freelancer.completed_projects || 0}
                   </p>
                 </div>
-                <div>
+
+                <div className="bg-gray-50 rounded-lg p-3 transform transition-all duration-300 hover:bg-gray-100">
                   <p className="text-sm text-gray-500">Response Time</p>
                   <p className="font-semibold text-gray-900">
                     {freelancer.response_time || "N/A"}
@@ -472,8 +520,9 @@ export default function FreelancerProfile() {
                 </div>
               </div>
 
+              {/* Enhanced Contact Button */}
               <div className="w-full mt-8">
-                <button className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition duration-200 flex items-center justify-center">
+                <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-300 transform hover:scale-105 hover:shadow-lg flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -982,7 +1031,7 @@ export default function FreelancerProfile() {
                           d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"
                         />
                       </svg>
-                      Project Messages
+                      Project Messssages
                     </h3>
 
                     <div className="bg-gray-50 rounded-xl p-4 h-80 overflow-y-auto mb-4 border border-gray-100">

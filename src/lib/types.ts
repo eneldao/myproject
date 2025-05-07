@@ -44,6 +44,10 @@ export interface Freelancer extends User {
 }
 
 export interface Project {
+  freelancer_name: string;
+  requirements: string;
+  deadline: string | number | Date;
+
   clients: any;
   client_name: ReactNode;
   id: string;
@@ -262,6 +266,35 @@ export interface Database {
           content?: string;
           read?: boolean;
           created_at?: string;
+        };
+      };
+      platform_revenue: {
+        Row: {
+          id: string;
+          project_id: string;
+          amount: string;
+          percentage: string;
+          transaction_date: string;
+          client_id: string;
+          freelancer_id: string;
+        };
+        Insert: {
+          id: string;
+          project_id: string;
+          amount: string;
+          percentage: string;
+          transaction_date?: string;
+          client_id: string;
+          freelancer_id: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          amount?: string;
+          percentage?: string;
+          transaction_date?: string;
+          client_id?: string;
+          freelancer_id?: string;
         };
       };
     };

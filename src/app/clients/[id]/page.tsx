@@ -7,6 +7,31 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Freelancer, Client, Project } from "@/lib/types";
 // Add missing imports for animations
 import { motion, AnimatePresence } from "framer-motion";
+import ProjectModal from "@/components/ProjectModal";
+import AnimatedBackground from "@/components/AnimatedBackground";
+import RefreshIndicator from "@/components/RefreshIndicator";
+
+// Add these helper functions near the top of the file, after imports
+const getAvatarColor = (name: string) => {
+  const colors = [
+    "from-blue-500 to-indigo-500",
+    "from-emerald-500 to-teal-500",
+    "from-purple-500 to-pink-500",
+    "from-amber-500 to-orange-500",
+    "from-rose-500 to-red-500",
+  ];
+  const index = name.length % colors.length;
+  return colors[index];
+};
+
+const getInitials = (name: string = "") => {
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .substring(0, 2);
+};
 
 // Enhanced Client interface to include additional fields
 interface EnhancedClient extends Client {
@@ -59,6 +84,7 @@ export default function ClientPage() {
 
   const [projects, setProjects] = useState<
     {
+      created_at: string | number | Date;
       id: string;
       title: string;
       description: string;
@@ -95,6 +121,14 @@ export default function ClientPage() {
   // Add animation states
   const [isTabChanging, setIsTabChanging] = useState(false);
   const [animationComplete, setAnimationComplete] = useState(true);
+
+  // Add new state variables for the project modal
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [selectedFreelancerForProject, setSelectedFreelancerForProject] =
+    useState<string>("");
+
+  // Add refresh state
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Extract unique services from freelancers for filter dropdown
   const allServices = useCallback(() => {
@@ -418,6 +452,9 @@ export default function ClientPage() {
           2
         )} to your account!`
       );
+
+      // Refresh all data
+      await refreshData();
     } catch (error) {
       console.error("Error adding funds:", error);
       setFundError(
@@ -502,6 +539,9 @@ export default function ClientPage() {
 
       // Refresh client data to show updated balance
       fetchData();
+
+      // Refresh all data
+      await refreshData();
     } catch (err) {
       console.error("Payment processing error:", err);
       // Only show alert if not related to insufficient funds
@@ -515,6 +555,34 @@ export default function ClientPage() {
     } finally {
       setProcessingPayment(null);
     }
+  };
+
+  // Add refresh function
+  const refreshData = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchData(),
+        fetchClientProjects(),
+        activeTab === "messages" && selectedProject
+          ? fetchClientMessages()
+          : Promise.resolve(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [
+    fetchData,
+    fetchClientProjects,
+    fetchClientMessages,
+    activeTab,
+    selectedProject,
+  ]);
+
+  // Update the handleProjectRequest function
+  const handleProjectRequest = (freelancerId: string) => {
+    setSelectedFreelancerForProject(freelancerId);
+    setShowProjectModal(true);
   };
 
   // Initialize data on component mount
@@ -596,28 +664,10 @@ export default function ClientPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-800">
-        <div className="text-xl flex flex-col items-center text-white">
-          <div className="relative w-24 h-24">
-            <div className="w-24 h-24 border-4 border-t-[#00BFFF] border-b-[#00BFFF] border-l-transparent border-r-transparent rounded-full animate-spin"></div>
-            {/* Add sound wave animation for loading state */}
-            <div className="absolute inset-0 flex justify-center items-center">
-              <div className="flex items-center space-x-1">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className={`w-1 bg-[#00BFFF] animate-soundwave-${i}`}
-                    style={{
-                      height: `${12 + i * 8}px`,
-                      animationDelay: `${i * 0.1}s`,
-                      animation: `soundwave 0.8s infinite ${i * 0.1}s`,
-                    }}
-                  ></div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="mt-4">Loading client details...</div>
+      <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-lg flex items-center space-x-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="text-xl text-gray-700">Loading client profile...</p>
         </div>
       </div>
     );
@@ -625,15 +675,29 @@ export default function ClientPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-          <div className="text-red-500 text-xl font-semibold mb-4">
-            Error Loading Data
+      <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-xl shadow-lg max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-8 w-8 text-red-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
           </div>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Error</h1>
+          <p className="text-gray-600">{error}</p>
           <button
             onClick={handleRetry}
-            className="w-full bg-[#00BFFF] text-white py-2 px-4 rounded-md hover:bg-[#0099CC] transition-colors"
+            className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200"
           >
             Try Again
           </button>
@@ -642,499 +706,603 @@ export default function ClientPage() {
     );
   }
 
-  const toggleServiceFilter = (service: string) => {
-    setFilterOptions((prev) => {
-      if (prev.services.includes(service)) {
-        return {
-          ...prev,
-          services: prev.services.filter((s) => s !== service),
-        };
-      } else {
-        return { ...prev, services: [...prev.services, service] };
-      }
-    });
-  };
+  function resetFilters(event: React.MouseEvent<HTMLButtonElement>): void {
+    throw new Error("Function not implemented.");
+  }
 
-  const resetFilters = () => {
-    setFilterOptions({
-      minRate: "",
-      maxRate: "",
-      minRating: "",
-      services: [],
-    });
-    setSearchTerm("");
-  };
-
-  const handleProjectRequest = (freelancerId: string) => {
-    router.push(`/projects/${freelancerId}&${id}`);
-  };
-
-  // Add a function to handle sending a message
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!messageContent.trim()) {
-      setMessageError("Message cannot be empty");
-      return;
-    }
-
-    if (!selectedProject) {
-      setMessageError("Please select a project");
-      return;
-    }
-
-    try {
-      setSendingMessage(true);
-      setMessageError("");
-
-      const response = await fetch("/api/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: messageContent,
-          project_id: selectedProject, // Include the selected project ID
-          sender_id: id, // Using the client ID from URL params
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || `Failed to send message: ${response.status}`
-        );
-      }
-
-      const data = await response.json();
-
-      // Add the new message to the messages state
-      if (data[0]) {
-        setMessages((prevMessages) => [...prevMessages, data[0]]);
-      } else if (data.message) {
-        setMessages((prevMessages) => [...prevMessages, data.message]);
-      }
-
-      // Reset form
-      setMessageContent("");
-      setMessageSent(true);
-
-      // Hide the success message after 3 seconds
-      setTimeout(() => {
-        setMessageSent(false);
-      }, 3000);
-    } catch (err) {
-      console.error("Error sending message:", err);
-      setMessageError(
-        err instanceof Error ? err.message : "Failed to send message"
-      );
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  function handleDownloadDeliverable(project: {
-    id: string;
-    title: string;
-    description: string;
-    budget: number;
-    status: string;
-  }): void {
-    // Create a simple text file with project details
-    const projectDetails = `
-Project: ${project.title}
-Description: ${project.description}
-Budget: $${project.budget}
-Status: ${project.status}
-Downloaded: ${new Date().toLocaleString()}
-`;
-
-    // Create a blob with the project details
-    const blob = new Blob([projectDetails], { type: "text/plain" });
-
-    // Create a URL for the blob
-    const url = window.URL.createObjectURL(blob);
-
-    // Create a link element
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${project.title.replace(/\s+/g, "_")}_deliverable.txt`;
-
-    // Append the link to the document, click it, and remove it
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+  function toggleServiceFilter(service: string): void {
+    throw new Error("Function not implemented.");
   }
 
   return (
-    <div className="bg-slate-800 w-full min-h-screen mx-auto px-4 py-8">
-      {/* Add CSS for sound wave animation */}
-      <style jsx global>{`
-        @keyframes soundwave {
-          0%,
-          100% {
-            height: 12px;
-          }
-          50% {
-            height: 24px;
-          }
-        }
-        .animate-soundwave-1 {
-          animation: soundwave 0.8s infinite 0.1s;
-        }
-        .animate-soundwave-2 {
-          animation: soundwave 0.8s infinite 0.2s;
-        }
-        .animate-soundwave-3 {
-          animation: soundwave 0.8s infinite 0.3s;
-        }
-        .animate-soundwave-4 {
-          animation: soundwave 0.8s infinite 0.4s;
-        }
-      `}</style>
-
-      {/* Back Button */}
-      <motion.div
-        className="mb-6"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <button
-          onClick={() => router.back()}
-          className="flex items-center text-[#00BFFF] hover:text-[#0099CC] transition-colors group"
-        >
-          <svg
-            className="w-5 h-5 mr-1 transform group-hover:translate-x-[-3px] transition-transform"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            ></path>
-          </svg>
-          Back to Clients
-        </button>
-      </motion.div>
-
-      {/* Enhanced Client Header with animation */}
-      <motion.div
-        className="bg-white rounded-lg shadow-md p-6 mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {clientData?.company_name || clientData?.full_name || "Client"}
-            </h1>
-            <p className="text-gray-600">
-              {clientData?.email || clientData?.contact_email}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-50 px-4 py-2 rounded-full text-blue-600 font-medium">
-              Client since{" "}
-              {new Date(clientData?.created_at || "").toLocaleDateString()}
-            </div>
-            <div className="bg-green-50 px-4 py-2 rounded-full text-green-600 font-medium flex items-center">
-              Balance: ${(clientData?.balance || 0).toFixed(2)}
-              <button
-                onClick={() => setShowAddFundsModal(true)}
-                className="ml-2 text-blue-600 hover:text-blue-800 text-sm underline"
-              >
-                Add Funds
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Client detailed information */}
-        <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Client Information</h2>
-            <div className="space-y-3 text-sm">
-              {clientData?.company_name && (
-                <div className="grid grid-cols-2">
-                  <span className="text-gray-500">Company:</span>
-                  <span>{clientData.company_name}</span>
-                </div>
-              )}
-              {clientData?.contact_name && (
-                <div className="grid grid-cols-2">
-                  <span className="text-gray-500">Contact Name:</span>
-                  <span>{clientData.contact_name}</span>
-                </div>
-              )}
-              {(clientData?.email || clientData?.contact_email) && (
-                <div className="grid grid-cols-2">
-                  <span className="text-gray-500">Email:</span>
-                  <span>{clientData.email || clientData.contact_email}</span>
-                </div>
-              )}
-              {clientData?.user_type && (
-                <div className="grid grid-cols-2">
-                  <span className="text-gray-500">User Type:</span>
-                  <span>{clientData.user_type}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Additional Details</h2>
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2">
-                <span className="text-gray-500">Created:</span>
-                <span>
-                  {new Date(clientData?.created_at || "").toLocaleString()}
-                </span>
+    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 py-10 relative">
+      <RefreshIndicator isRefreshing={isRefreshing} />
+      <AnimatedBackground />
+      <div className="container mx-auto px-4 relative z-10">
+        {/* Client Profile Header */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+          <div className="flex flex-col md:flex-row">
+            <div className="md:w-1/3 flex flex-col items-center md:items-start md:pr-8 md:border-r border-gray-200">
+              {/* Client Avatar */}
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 flex-shrink-0 mb-4 shadow-md border-2 border-white">
+                {clientData?.avatar_url ? (
+                  <img
+                    src={clientData.avatar_url}
+                    alt={clientData.full_name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        clientData.full_name
+                      )}&background=random&color=fff&size=128&bold=true`;
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600 text-white text-2xl font-bold">
+                    {clientData?.full_name?.charAt(0) || "C"}
+                  </div>
+                )}
               </div>
-              {clientData?.updated_at && (
-                <div className="grid grid-cols-2">
-                  <span className="text-gray-500">Last Updated:</span>
-                  <span>
-                    {new Date(clientData.updated_at).toLocaleString()}
-                  </span>
+
+              {/* Client Info */}
+              <h1 className="text-3xl font-bold text-gray-800 text-center md:text-left">
+                {clientData?.company_name || clientData?.full_name}
+              </h1>
+              <p className="text-blue-600 font-medium text-lg mb-4 text-center md:text-left">
+                {clientData?.contact_name || "Client"}
+              </p>
+
+              {/* Stats Grid */}
+              <div className="w-full mt-4 grid grid-cols-2 gap-4">
+                <div className="col-span-2 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg p-4 text-white">
+                  <p className="text-sm opacity-90">Available Balance</p>
+                  <p className="font-bold text-2xl">
+                    ${(clientData?.balance || 0).toFixed(2)}
+                  </p>
+                  <button
+                    onClick={() => setShowAddFundsModal(true)}
+                    className="mt-2 w-full bg-white/20 hover:bg-white/30 text-white text-sm py-1 px-3 rounded transition-colors"
+                  >
+                    Add Funds
+                  </button>
                 </div>
-              )}
-              {clientData?.user_id && (
-                <div className="grid grid-cols-2">
-                  <span className="text-gray-500">User ID:</span>
-                  <span>{clientData.user_id}</span>
+
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm text-gray-500">Total Projects</p>
+                  <p className="font-semibold text-gray-900">
+                    {projects.length}
+                  </p>
                 </div>
-              )}
+
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <p className="text-sm text-gray-500">Active Projects</p>
+                  <p className="font-semibold text-gray-900">
+                    {projects.filter((p) => p.status === "in_progress").length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contact Button */}
+              <div className="w-full mt-8">
+                <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition duration-200">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 inline-block mr-2"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                  </svg>
+                  Contact Support
+                </button>
+              </div>
+            </div>
+
+            {/* Client Details */}
+            <div className="md:w-2/3 mt-8 md:mt-0 md:pl-8">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-2 text-blue-600"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path
+                      fillRule="evenodd"
+                      d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Overview
+                </h2>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Company</p>
+                      <p className="font-semibold text-gray-900">
+                        {clientData?.company_name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Contact Name</p>
+                      <p className="font-semibold text-gray-900">
+                        {clientData?.contact_name || clientData?.full_name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-semibold text-gray-900">
+                        {clientData?.email || clientData?.contact_email}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Member Since</p>
+                      <p className="font-semibold text-gray-900">
+                        {new Date(
+                          clientData?.created_at || ""
+                        ).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Project Summary */}
+              <div className="mt-8">
+                <h2 className="text-xl font-bold text-gray-800 mb-3 flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5 mr-2 text-blue-600"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  Project Summary
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-green-50 rounded-lg p-4">
+                    <p className="text-sm text-green-600">Completed Projects</p>
+                    <p className="text-2xl font-bold text-green-700">
+                      {projects.filter((p) => p.status === "completed").length}
+                    </p>
+                  </div>
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <p className="text-sm text-blue-600">Active Projects</p>
+                    <p className="text-2xl font-bold text-blue-700">
+                      {
+                        projects.filter((p) => p.status === "in_progress")
+                          .length
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </motion.div>
 
-      {/* Tabs Navigation with animation */}
-      <motion.div
-        className="flex border-b mb-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-      >
-        <button
-          onClick={() => handleTabChange("projects")}
-          className={`px-6 py-3 font-medium text-sm relative ${
-            activeTab === "projects"
-              ? "text-[#00BFFF]"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          Projects
+        {/* Tabs Navigation */}
+        <div className="bg-white rounded-2xl shadow-lg mb-6">
+          <div className="flex border-b">
+            {["projects", "messages", "freelancers"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab as any)}
+                className={`flex-1 px-6 py-4 text-center font-medium relative ${
+                  activeTab === tab
+                    ? "text-blue-600"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {activeTab === tab && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"
+                    initial={false}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <AnimatePresence mode="wait">
+          {/* Projects Tab */}
           {activeTab === "projects" && (
             <motion.div
-              className="absolute bottom-0 left-0 w-full h-0.5 bg-[#00BFFF]"
-              layoutId="activeTab"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            />
-          )}
-        </button>
-        <button
-          onClick={() => handleTabChange("freelancers")}
-          className={`px-6 py-3 font-medium text-sm relative ${
-            activeTab === "freelancers"
-              ? "text-[#00BFFF]"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          Freelancers
-          {activeTab === "freelancers" && (
-            <motion.div
-              className="absolute bottom-0 left-0 w-full h-0.5 bg-[#00BFFF]"
-              layoutId="activeTab"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            />
-          )}
-        </button>
-        <button
-          onClick={() => handleTabChange("messages")}
-          className={`px-6 py-3 font-medium text-sm relative ${
-            activeTab === "messages"
-              ? "text-[#00BFFF]"
-              : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          Messages
-          {activeTab === "messages" && (
-            <motion.div
-              className="absolute bottom-0 left-0 w-full h-0.5 bg-[#00BFFF]"
-              layoutId="activeTab"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-            />
-          )}
-        </button>
-      </motion.div>
-
-      {/* Tab Content with Animation */}
-      <AnimatePresence mode="wait">
-        {/* Projects Tab */}
-        {activeTab === "projects" && (
-          <motion.div
-            key="projects"
-            className="space-y-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-slate-100">
-                Client Projects
-              </h2>
-            </div>
-
-            {projects.length === 0 ? (
-              <div className="bg-gray-50 rounded-lg p-8 text-center">
-                <p className="text-gray-600 mb-4">
-                  No projects found for this client.
-                </p>
-                <Link
-                  href={`/projects/new?client=${id}`}
-                  className="text-[#00BFFF] hover:underline"
+              key="projects"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {projects.map((project) => (
+                <motion.div
+                  key={project.id}
+                  className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-200"
+                  whileHover={{ y: -5 }}
                 >
-                  Create their first project
-                </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {projects.map((project) => (
-                  <div
-                    key={project.id}
-                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-5"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-lg truncate">
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="font-bold text-lg text-gray-900">
                         {project.title}
                       </h3>
                       <span
-                        className={`text-xs px-2 py-1 rounded-full ${
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
                           project.status === "completed"
                             ? "bg-green-100 text-green-800"
                             : project.status === "in_progress"
                             ? "bg-blue-100 text-blue-800"
-                            : project.status === "paid"
-                            ? "bg-purple-100 text-purple-800"
                             : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
-                        {project.status === "in_progress"
-                          ? "In Progress"
-                          : project.status.charAt(0).toUpperCase() +
-                            project.status.slice(1)}
+                        {project.status.replace("_", " ").toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    <p className="text-gray-600 mb-4 line-clamp-2">
                       {project.description}
                     </p>
-                    <div className="flex justify-between items-center">
-                      <div className="text-gray-700">
-                        <span className="font-semibold">${project.budget}</span>
-                      </div>
-                      <div className="flex space-x-2">
-                        {project.status === "completed" && (
-                          <button
-                            onClick={() => handlePayFreelancer(project)}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                            disabled={processingPayment === project.id}
-                          >
-                            {processingPayment === project.id ? (
-                              <span className="flex items-center">
-                                <svg
-                                  className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  ></circle>
-                                  <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                  ></path>
-                                </svg>
-                                Processing
-                              </span>
-                            ) : (
-                              "Pay Freelancer"
-                            )}
-                          </button>
-                        )}
-                        {project.status === "paid" && (
-                          <button
-                            onClick={() => handleDownloadDeliverable(project)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                          >
-                            Download Deliverable
-                          </button>
-                        )}
-                        <Link
-                          href={`/projects/${project.id}`}
-                          className="text-[#00BFFF] hover:underline text-sm flex items-center"
+                    <div className="flex justify-between items-center text-sm text-gray-500">
+                      <div className="flex items-center">
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          View Details
-                        </Link>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        ${project.budget}
+                      </div>
+                      <div className="flex items-center">
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                        {new Date(project.created_at).toLocaleDateString()}
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </motion.div>
-        )}
+                  <div className="px-6 py-4 bg-gray-50 border-t rounded-b-xl">
+                    <div className="flex justify-between items-center">
+                      {project.status === "completed" && (
+                        <button
+                          onClick={() => handlePayFreelancer(project)}
+                          className="text-green-600 hover:text-green-700 font-medium text-sm"
+                          disabled={processingPayment === project.id}
+                        >
+                          {processingPayment === project.id ? (
+                            <span className="flex items-center">
+                              <svg
+                                className="animate-spin h-4 w-4 mr-2"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                />
+                              </svg>
+                              Processing...
+                            </span>
+                          ) : (
+                            "Pay Freelancer"
+                          )}
+                        </button>
+                      )}
+                      <Link
+                        href={`/projectdetails/${project.id}`}
+                        className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                      >
+                        View Details →
+                      </Link>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
 
-        {/* Freelancers Tab */}
-        {activeTab === "freelancers" && (
-          <motion.div
-            key="freelancers"
-            className="space-y-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">
-                  Available Freelancers (
-                  {(filteredFreelancers && filteredFreelancers.length) || 0})
-                </h2>
+          {/* Rest of your tab content */}
+          {/* Messages Tab */}
+          {activeTab === "messages" && (
+            <motion.div
+              key="messages"
+              className="bg-white rounded-lg shadow-md p-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Project Messages
+              </h2>
 
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search freelancers..."
-                      className="border rounded-md py-2 px-4 pl-10 w-full focus:ring-blue-500 focus:border-blue-500"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+              {/* Selected Freelancer Section (if applicable) */}
+              {selectedFreelancer && (
+                <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      {selectedFreelancer.avatar_url ? (
+                        <img
+                          src={selectedFreelancer.avatar_url}
+                          alt={`${selectedFreelancer.full_name}'s avatar`}
+                          className="h-10 w-10 rounded-full mr-3"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
+                          <span className="text-gray-600 font-medium">
+                            {selectedFreelancer.full_name?.charAt(0) || "F"}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold">
+                          {selectedFreelancer.full_name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {selectedFreelancer.title}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setSelectedFreelancer(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
                       <svg
-                        className="w-5 h-5 text-gray-400"
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M6 18L18 6M6 6l12 12"
+                        ></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Project Selector */}
+              <div className="mb-4">
+                <label
+                  htmlFor="project-select"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  Select Project
+                </label>
+                <select
+                  id="project-select"
+                  className="w-full border rounded-md p-2"
+                  value={selectedProject || ""}
+                  onChange={(e) => {
+                    const projectId = e.target.value;
+                    setSelectedProject(projectId);
+                    if (projectId) {
+                      setDebugInfo("Project selected, loading messages...");
+                    } else {
+                      setMessages([]);
+                      setDebugInfo("No project selected.");
+                    }
+                  }}
+                >
+                  <option value="">Select a project</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.title} - {project.status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedProject ? (
+                <>
+                  {/* Message Display */}
+                  <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto mb-4">
+                    {/* Debug info to check message data */}
+                    <div className="text-xs text-gray-400 mb-2 flex justify-between items-center">
+                      <span>Total messages: {messages.length}</span>
+                      <button
+                        onClick={refreshMessages}
+                        disabled={refreshingMessages}
+                        className="text-blue-500 hover:text-blue-700"
+                        title="Refresh messages"
+                      >
+                        {refreshingMessages ? "Refreshing..." : "↻ Refresh"}
+                      </button>
+                    </div>
+
+                    {messages.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-gray-500 mb-2">
+                          No messages yet for this project.
+                        </p>
+
+                        {debugInfo && (
+                          <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded mb-4 text-left">
+                            <strong>Debug info:</strong> {debugInfo}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleSendTestMessage}
+                          disabled={sendingMessage}
+                          className="bg-gray-200 text-gray-800 py-1 px-3 rounded text-sm hover:bg-gray-300 transition-colors"
+                        >
+                          {sendingMessage
+                            ? "Sending..."
+                            : "Send a test message"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {messages.map((message) => (
+                          <div
+                            key={message.id}
+                            className={`p-3 rounded-lg max-w-3/4 ${
+                              message.sender_id === id
+                                ? "bg-blue-100 ml-auto"
+                                : "bg-gray-200"
+                            }`}
+                          >
+                            <p className="text-xs text-gray-500 mb-1">
+                              {message.sender_id === id ? "You" : "Freelancer"}
+                              {" · "}
+                              {new Date(message.created_at).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )}
+                            </p>
+                            <p>{message.content}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Message Input */}
+                  <form onSubmit={handleSendTestMessage} className="mt-4">
+                    <div className="flex flex-col space-y-2">
+                      <textarea
+                        value={messageContent}
+                        onChange={(e) => setMessageContent(e.target.value)}
+                        className="w-full border rounded-md p-2 min-h-[100px]"
+                        placeholder="Type your message..."
+                        required
+                      />
+
+                      {messageError && (
+                        <div className="text-red-500 text-sm">
+                          {messageError}
+                        </div>
+                      )}
+
+                      {messageSent && (
+                        <div className="text-green-500 text-sm">
+                          Message sent successfully!
+                        </div>
+                      )}
+
+                      <div className="flex justify-end">
+                        <button
+                          type="submit"
+                          disabled={sendingMessage}
+                          className={`bg-[#00BFFF] text-white py-2 px-6 rounded-md hover:bg-[#0099CC] transition-colors ${
+                            sendingMessage
+                              ? "opacity-50 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
+                          {sendingMessage ? "Sending..." : "Send Message"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600 mb-4">
+                    Select a project to view and send messages.
+                  </p>
+                  {projects.length > 0 && (
+                    <p className="text-sm text-blue-600">
+                      You have {projects.length} projects available
+                    </p>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Freelancers Tab */}
+          {activeTab === "freelancers" && (
+            <motion.div
+              key="freelancers"
+              className="space-y-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4 md:mb-0">
+                    Available Freelancers (
+                    {(filteredFreelancers && filteredFreelancers.length) || 0})
+                  </h2>
+
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search freelancers..."
+                        className="border rounded-md py-2 px-4 pl-10 w-full focus:ring-blue-500 focus:border-blue-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          ></path>
+                        </svg>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="bg-gray-100 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+                    >
+                      <svg
+                        className="w-5 h-5 mr-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1144,602 +1312,443 @@ Downloaded: ${new Date().toLocaleString()}
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth="2"
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
                         ></path>
                       </svg>
-                    </div>
+                      Filters
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="bg-gray-100 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
-                  >
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                      ></path>
-                    </svg>
-                    Filters
-                  </button>
                 </div>
-              </div>
 
-              {/* Filter panel */}
-              {showFilters && (
-                <div className="bg-gray-50 p-4 rounded-md mb-6">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Min Hourly Rate ($)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-full border rounded-md p-2"
-                        value={filterOptions.minRate}
-                        onChange={(e) =>
-                          setFilterOptions((prev) => ({
-                            ...prev,
-                            minRate: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
+                {/* Filter panel */}
+                {showFilters && (
+                  <div className="bg-gray-50 p-4 rounded-md mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Min Hourly Rate ($)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full border rounded-md p-2"
+                          value={filterOptions.minRate}
+                          onChange={(e) =>
+                            setFilterOptions((prev) => ({
+                              ...prev,
+                              minRate: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Max Hourly Rate ($)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="w-full border rounded-md p-2"
-                        value={filterOptions.maxRate}
-                        onChange={(e) =>
-                          setFilterOptions((prev) => ({
-                            ...prev,
-                            maxRate: e.target.value,
-                          }))
-                        }
-                      />
-                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Max Hourly Rate ($)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="w-full border rounded-md p-2"
+                          value={filterOptions.maxRate}
+                          onChange={(e) =>
+                            setFilterOptions((prev) => ({
+                              ...prev,
+                              maxRate: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Min Rating
-                      </label>
-                      <select
-                        className="w-full border rounded-md p-2"
-                        value={filterOptions.minRating}
-                        onChange={(e) =>
-                          setFilterOptions((prev) => ({
-                            ...prev,
-                            minRating: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Any</option>
-                        <option value="1">1+ Stars</option>
-                        <option value="2">2+ Stars</option>
-                        <option value="3">3+ Stars</option>
-                        <option value="4">4+ Stars</option>
-                        <option value="4.5">4.5+ Stars</option>
-                      </select>
-                    </div>
-
-                    <div className="md:flex md:items-end">
-                      <button
-                        onClick={resetFilters}
-                        className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
-                      >
-                        Reset Filters
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Services filter */}
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Services
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {allServices().map((service) => (
-                        <button
-                          key={service}
-                          onClick={() => toggleServiceFilter(service)}
-                          className={`text-sm px-3 py-1 rounded-full ${
-                            filterOptions.services.includes(service)
-                              ? "bg-[#00BFFF] text-white"
-                              : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                          } transition-colors`}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Min Rating
+                        </label>
+                        <select
+                          className="w-full border rounded-md p-2"
+                          value={filterOptions.minRating}
+                          onChange={(e) =>
+                            setFilterOptions((prev) => ({
+                              ...prev,
+                              minRating: e.target.value,
+                            }))
+                          }
                         >
-                          {service}
+                          <option value="">Any</option>
+                          <option value="1">1+ Stars</option>
+                          <option value="2">2+ Stars</option>
+                          <option value="3">3+ Stars</option>
+                          <option value="4">4+ Stars</option>
+                          <option value="4.5">4.5+ Stars</option>
+                        </select>
+                      </div>
+
+                      <div className="md:flex md:items-end">
+                        <button
+                          onClick={resetFilters}
+                          className="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors"
+                        >
+                          Reset Filters
                         </button>
-                      ))}
+                      </div>
+                    </div>
+
+                    {/* Services filter */}
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Services
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {allServices().map((service) => (
+                          <button
+                            key={service}
+                            onClick={() => toggleServiceFilter(service)}
+                            className={`text-sm px-3 py-1 rounded-full ${
+                              filterOptions.services.includes(service)
+                                ? "bg-[#00BFFF] text-white"
+                                : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                            } transition-colors`}
+                          >
+                            {service}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* No results message */}
-              {(!filteredFreelancers || filteredFreelancers.length === 0) && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 text-lg">
-                    No freelancers found matching your criteria.
-                  </p>
-                  <button
-                    onClick={resetFilters}
-                    className="mt-4 bg-gray-200 text-gray-800 py-2 px-6 rounded-md hover:bg-gray-300 transition-colors"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              )}
+                {/* No results message */}
+                {(!filteredFreelancers || filteredFreelancers.length === 0) && (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-lg">
+                      No freelancers found matching your criteria.
+                    </p>
+                    <button
+                      onClick={resetFilters}
+                      className="mt-4 bg-gray-200 text-gray-800 py-2 px-6 rounded-md hover:bg-gray-300 transition-colors"
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
+                )}
 
-              {/* Freelancers Grid with safe mapping */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredFreelancers && filteredFreelancers.length > 0
-                  ? filteredFreelancers.map((freelancer) => (
-                      <motion.div
-                        key={freelancer.id}
-                        className="border rounded-lg p-4 hover:shadow-lg transition-shadow bg-white"
-                        whileHover={{
-                          y: -5,
-                          boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)",
-                        }}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        {/* Freelancer card content remains the same */}
-                        <div className="flex items-center mb-3">
-                          {freelancer.avatar_url ? (
-                            <img
-                              src={freelancer.avatar_url}
-                              alt={`${freelancer.full_name}'s avatar`}
-                              className="h-10 w-10 rounded-full mr-3"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                              <span className="text-gray-600 font-medium">
-                                {freelancer.full_name?.charAt(0) || "F"}
-                              </span>
+                {/* Freelancers Grid with safe mapping */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredFreelancers && filteredFreelancers.length > 0
+                    ? filteredFreelancers.map((freelancer) => (
+                        <motion.div
+                          key={freelancer.id}
+                          className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                          whileHover={{ y: -5, scale: 1.02 }}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <div className="p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                              <div className="relative group">
+                                <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br shadow-md border-2 border-white transition-transform duration-300 transform group-hover:scale-105">
+                                  {freelancer.avatar_url ? (
+                                    <img
+                                      src={freelancer.avatar_url}
+                                      alt={freelancer.full_name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const target =
+                                          e.target as HTMLImageElement;
+                                        target.onerror = null; // Prevent infinite loop
+                                        target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                          freelancer.full_name || "User"
+                                        )}&background=random&color=fff&size=128&bold=true`;
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${getAvatarColor(
+                                        freelancer.full_name || "User"
+                                      )} text-white text-xl font-bold`}
+                                    >
+                                      {getInitials(freelancer.full_name)}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-xl font-bold text-gray-900 truncate">
+                                  {freelancer.full_name}
+                                </h3>
+                                <p className="text-sm text-gray-500 truncate">
+                                  {freelancer.title || "Freelance Professional"}
+                                </p>
+                              </div>
                             </div>
-                          )}
-                          <h3 className="text-xl font-semibold truncate">
-                            {freelancer.full_name}
-                          </h3>
-                        </div>
-                        <h4 className="text-lg font-medium mb-2 truncate">
-                          {freelancer.title}
-                        </h4>
-                        <p className="text-gray-600 mb-4 line-clamp-3 h-18">
-                          {freelancer.description}
-                        </p>
-                        <div className="space-y-2 mb-4">
-                          <p className="text-gray-600">
-                            <span className="font-medium">Hourly Rate:</span> $
-                            {freelancer.hourly_rate || "N/A"}
-                          </p>
-                          {freelancer.languages &&
-                            freelancer.languages.length > 0 && (
-                              <p className="text-gray-600">
-                                <span className="font-medium">Languages:</span>{" "}
-                                {freelancer.languages.join(", ")}
-                              </p>
-                            )}
-                          {freelancer.services &&
-                            freelancer.services.length > 0 && (
-                              <p className="text-gray-600 truncate">
-                                <span className="font-medium">Services:</span>{" "}
-                                {freelancer.services.join(", ")}
-                              </p>
-                            )}
-                          <p className="text-gray-600">
-                            <span className="font-medium">Rating:</span>{" "}
-                            <span className="flex items-center">
-                              {freelancer.rating || "N/A"}
-                              {freelancer.rating ? (
-                                <span className="text-yellow-400 ml-1">★</span>
-                              ) : null}
-                              <span className="ml-1">
-                                ({freelancer.reviews_count || 0} reviews)
-                              </span>
-                            </span>
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedFreelancer(freelancer);
-                              setActiveTab("messages");
-                            }}
-                            className="text-center bg-[#00BFFF] text-white py-2 rounded-md hover:bg-[#0099CC] transition-colors"
-                          >
-                            Contact Now
-                          </button>
-                          <button
-                            onClick={() => handleProjectRequest(freelancer.id)}
-                            className="block text-center bg-gray-100 text-gray-800 py-2 rounded-md hover:bg-gray-200 transition-colors"
-                          >
-                            Request Project
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))
-                  : null}
-              </div>
-            </div>
-          </motion.div>
-        )}
 
-        {/* Messages Tab */}
-        {activeTab === "messages" && (
+                            <div className="space-y-4">
+                              <p className="text-gray-600 line-clamp-2 h-12 text-sm">
+                                {freelancer.description ||
+                                  "No description provided"}
+                              </p>
+
+                              <div className="grid grid-cols-2 gap-4 py-3">
+                                <div className="bg-gray-50 p-2 rounded-lg text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Hourly Rate
+                                  </p>
+                                  <p className="font-semibold text-gray-900">
+                                    ${freelancer.hourly_rate || "N/A"}
+                                  </p>
+                                </div>
+                                <div className="bg-gray-50 p-2 rounded-lg text-center">
+                                  <p className="text-xs text-gray-500">
+                                    Rating
+                                  </p>
+                                  <div className="flex items-center justify-center">
+                                    <span className="font-semibold text-gray-900">
+                                      {freelancer.rating || "N/A"}
+                                    </span>
+                                    {freelancer.rating && (
+                                      <span className="text-yellow-400 ml-1">
+                                        ★
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {freelancer.services &&
+                                freelancer.services.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {freelancer.services
+                                      .slice(0, 3)
+                                      .map((service, idx) => (
+                                        <span
+                                          key={idx}
+                                          className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full"
+                                        >
+                                          {service}
+                                        </span>
+                                      ))}
+                                    {freelancer.services.length > 3 && (
+                                      <span className="px-2 py-1 bg-gray-50 text-gray-600 text-xs rounded-full">
+                                        +{freelancer.services.length - 3} more
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 mt-6">
+                              <button
+                                onClick={() => {
+                                  setSelectedFreelancer(freelancer);
+                                  setActiveTab("messages");
+                                }}
+                                className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 text-sm font-medium"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4 mr-2"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                                  />
+                                </svg>
+                                Contact
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleProjectRequest(freelancer.id)
+                                }
+                                className="flex items-center justify-center px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-300 text-sm font-medium"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4 mr-2"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 4v16m8-8H4"
+                                  />
+                                </svg>
+                                Hire Now
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))
+                    : null}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Add Funds Modal */}
+        {showAddFundsModal && (
           <motion.div
-            key="messages"
-            className="bg-white rounded-lg shadow-md p-6"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
           >
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Project Messages
-            </h2>
-
-            {/* Selected Freelancer Section (if applicable) */}
-            {selectedFreelancer && (
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    {selectedFreelancer.avatar_url ? (
-                      <img
-                        src={selectedFreelancer.avatar_url}
-                        alt={`${selectedFreelancer.full_name}'s avatar`}
-                        className="h-10 w-10 rounded-full mr-3"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center mr-3">
-                        <span className="text-gray-600 font-medium">
-                          {selectedFreelancer.full_name?.charAt(0) || "F"}
-                        </span>
-                      </div>
-                    )}
-                    <div>
-                      <h3 className="font-semibold">
-                        {selectedFreelancer.full_name}
-                      </h3>
-                      <p className="text-sm text-gray-600">
-                        {selectedFreelancer.title}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSelectedFreelancer(null)}
-                    className="text-gray-500 hover:text-gray-700"
+            <motion.div
+              className="bg-white rounded-lg p-6 w-full max-w-md"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25 }}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Add Funds to Your Account</h2>
+                <button
+                  onClick={() => {
+                    setShowAddFundsModal(false);
+                    setFundError("");
+                    setFundAmount("");
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      ></path>
-                    </svg>
-                  </button>
-                </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    ></path>
+                  </svg>
+                </button>
               </div>
-            )}
 
-            {/* Project Selector */}
-            <div className="mb-4">
-              <label
-                htmlFor="project-select"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Select Project
-              </label>
-              <select
-                id="project-select"
-                className="w-full border rounded-md p-2"
-                value={selectedProject || ""}
-                onChange={(e) => {
-                  const projectId = e.target.value;
-                  setSelectedProject(projectId);
-                  if (projectId) {
-                    setDebugInfo("Project selected, loading messages...");
-                  } else {
-                    setMessages([]);
-                    setDebugInfo("No project selected.");
-                  }
-                }}
-              >
-                <option value="">Select a project</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.title} - {project.status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedProject ? (
-              <>
-                {/* Message Display */}
-                <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto mb-4">
-                  {/* Debug info to check message data */}
-                  <div className="text-xs text-gray-400 mb-2 flex justify-between items-center">
-                    <span>Total messages: {messages.length}</span>
-                    <button
-                      onClick={refreshMessages}
-                      disabled={refreshingMessages}
-                      className="text-blue-500 hover:text-blue-700"
-                      title="Refresh messages"
-                    >
-                      {refreshingMessages ? "Refreshing..." : "↻ Refresh"}
-                    </button>
-                  </div>
-
-                  {messages.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 mb-2">
-                        No messages yet for this project.
-                      </p>
-
-                      {debugInfo && (
-                        <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded mb-4 text-left">
-                          <strong>Debug info:</strong> {debugInfo}
-                        </div>
-                      )}
-
-                      <button
-                        onClick={handleSendTestMessage}
-                        disabled={sendingMessage}
-                        className="bg-gray-200 text-gray-800 py-1 px-3 rounded text-sm hover:bg-gray-300 transition-colors"
-                      >
-                        {sendingMessage ? "Sending..." : "Send a test message"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`p-3 rounded-lg max-w-3/4 ${
-                            message.sender_id === id
-                              ? "bg-blue-100 ml-auto"
-                              : "bg-gray-200"
-                          }`}
-                        >
-                          <p className="text-xs text-gray-500 mb-1">
-                            {message.sender_id === id ? "You" : "Freelancer"}
-                            {" · "}
-                            {new Date(message.created_at).toLocaleTimeString(
-                              [],
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </p>
-                          <p>{message.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Message Input */}
-                <form onSubmit={handleSendMessage} className="mt-4">
-                  <div className="flex flex-col space-y-2">
-                    <textarea
-                      value={messageContent}
-                      onChange={(e) => setMessageContent(e.target.value)}
-                      className="w-full border rounded-md p-2 min-h-[100px]"
-                      placeholder="Type your message..."
-                      required
-                    />
-
-                    {messageError && (
-                      <div className="text-red-500 text-sm">{messageError}</div>
-                    )}
-
-                    {messageSent && (
-                      <div className="text-green-500 text-sm">
-                        Message sent successfully!
-                      </div>
-                    )}
-
-                    <div className="flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={sendingMessage}
-                        className={`bg-[#00BFFF] text-white py-2 px-6 rounded-md hover:bg-[#0099CC] transition-colors ${
-                          sendingMessage ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                      >
-                        {sendingMessage ? "Sending..." : "Send Message"}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <p className="text-gray-600 mb-4">
-                  Select a project to view and send messages.
-                </p>
-                {projects.length > 0 && (
-                  <p className="text-sm text-blue-600">
-                    You have {projects.length} projects available
+              {insufficientFunds && (
+                <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
+                  <p>You have insufficient funds to complete this payment.</p>
+                  <p className="font-medium">
+                    Current balance: ${(clientData?.balance || 0).toFixed(2)}
                   </p>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Add Funds Modal with enhanced animation */}
-      {showAddFundsModal && (
-        <motion.div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-        >
-          <motion.div
-            className="bg-white rounded-lg p-6 w-full max-w-md"
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ type: "spring", damping: 25 }}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Add Funds to Your Account</h2>
-              <button
-                onClick={() => {
-                  setShowAddFundsModal(false);
-                  setFundError("");
-                  setFundAmount("");
-                }}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  ></path>
-                </svg>
-              </button>
-            </div>
-
-            {insufficientFunds && (
-              <div className="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-700">
-                <p>You have insufficient funds to complete this payment.</p>
-                <p className="font-medium">
-                  Current balance: ${(clientData?.balance || 0).toFixed(2)}
-                </p>
-              </div>
-            )}
-
-            <form onSubmit={handleAddFunds}>
-              <div className="mb-4">
-                <label
-                  htmlFor="fundAmount"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Amount to Add (USD)
-                </label>
-                <div className="relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-gray-500">$</span>
-                  </div>
-                  <input
-                    type="number"
-                    id="fundAmount"
-                    value={fundAmount}
-                    onChange={(e) => setFundAmount(e.target.value)}
-                    className="block w-full pl-8 pr-12 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 py-2"
-                    placeholder="0.00"
-                    min="0.01"
-                    step="0.01"
-                    required
-                  />
                 </div>
-              </div>
-
-              {fundError && (
-                <div className="mb-4 text-red-500 text-sm">{fundError}</div>
               )}
 
-              <div className="bg-gray-50 p-4 rounded-md mb-4">
-                <h3 className="font-medium text-gray-700 mb-2">
-                  Payment Information (Mock)
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">
-                      Card Number
-                    </label>
+              <form onSubmit={handleAddFunds}>
+                <div className="mb-4">
+                  <label
+                    htmlFor="fundAmount"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
+                    Amount to Add (USD)
+                  </label>
+                  <div className="relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500">$</span>
+                    </div>
                     <input
-                      type="text"
-                      className="block w-full border border-gray-300 rounded-md p-2"
-                      placeholder="4242 4242 4242 4242"
+                      type="number"
+                      id="fundAmount"
+                      value={fundAmount}
+                      onChange={(e) => setFundAmount(e.target.value)}
+                      className="block w-full pl-8 pr-12 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 py-2"
+                      placeholder="0.00"
+                      min="0.01"
+                      step="0.01"
+                      required
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                </div>
+
+                {fundError && (
+                  <div className="mb-4 text-red-500 text-sm">{fundError}</div>
+                )}
+
+                <div className="bg-gray-50 p-4 rounded-md mb-4">
+                  <h3 className="font-medium text-gray-700 mb-2">
+                    Payment Information (Mock)
+                  </h3>
+                  <div className="space-y-3">
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Expiry Date
+                        Card Number
                       </label>
                       <input
                         type="text"
                         className="block w-full border border-gray-300 rounded-md p-2"
-                        placeholder="MM/YY"
+                        placeholder="4242 4242 4242 4242"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">
-                        CVC
-                      </label>
-                      <input
-                        type="text"
-                        className="block w-full border border-gray-300 rounded-md p-2"
-                        placeholder="123"
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">
+                          Expiry Date
+                        </label>
+                        <input
+                          type="text"
+                          className="block w-full border border-gray-300 rounded-md p-2"
+                          placeholder="MM/YY"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-700 mb-1">
+                          CVC
+                        </label>
+                        <input
+                          type="text"
+                          className="block w-full border border-gray-300 rounded-md p-2"
+                          placeholder="123"
+                        />
+                      </div>
                     </div>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    This is a mock payment form. No real payment will be
+                    processed.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  This is a mock payment form. No real payment will be
-                  processed.
-                </p>
-              </div>
 
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowAddFundsModal(false)}
-                  className="mr-2 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={processingFunds}
-                  className={`bg-[#00BFFF] text-white px-4 py-2 rounded-md hover:bg-[#0099CC] transition-colors ${
-                    processingFunds ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  {processingFunds ? "Processing..." : "Add Funds"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddFundsModal(false)}
+                    className="mr-2 bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={processingFunds}
+                    className={`bg-[#00BFFF] text-white px-4 py-2 rounded-md hover:bg-[#0099CC] transition-colors ${
+                      processingFunds ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {processingFunds ? "Processing..." : "Add Funds"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
+        )}
+
+        {/* Add the ProjectModal */}
+        <ProjectModal
+          isOpen={showProjectModal}
+          onClose={() => setShowProjectModal(false)}
+          freelancerId={selectedFreelancerForProject}
+          clientId={id}
+        />
+      </div>
     </div>
   );
 }
