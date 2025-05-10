@@ -20,6 +20,11 @@ export default function ProjectDetailsPage() {
     "details"
   );
 
+  // Add signout handler
+  const handleSignOut = () => {
+    router.push("/auth/signin");
+  };
+
   // Fetch project details
   useEffect(() => {
     const fetchProjectDetails = async () => {
@@ -144,8 +149,64 @@ export default function ProjectDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50 py-10">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-r from-blue-50 to-indigo-50">
+      {/* Modern Navigation Header */}
+      <motion.div
+        className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <motion.button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-300"
+              whileHover={{ scale: 1.02, x: -5 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                />
+              </svg>
+              <span className="font-medium">Back</span>
+            </motion.button>
+
+            <motion.button
+              onClick={handleSignOut}
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-red-600 rounded-lg hover:bg-red-50 transition-all duration-300"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="font-medium">Sign Out</span>
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="container mx-auto px-4 py-10">
         {/* Back Button */}
         <motion.div
           className="mb-6"
