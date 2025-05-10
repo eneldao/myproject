@@ -20,45 +20,11 @@ export default function ClientSignup() {
   const { signup } = useAuth();
   const router = useRouter();
 
-  const validateForm = () => {
-    if (!fullName || !email || !password) {
-      setError("Please fill in all required fields");
-      return false;
-    }
-
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
-      );
-      return false;
-    }
-
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      setError(
-        "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
-      );
-      return false;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError("Please enter a valid email address");
-      return false;
-    }
-
-    return true;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (loading) return;
-    if (!validateForm()) {
-      return;
-    }
 
     setLoading(true);
 
@@ -529,10 +495,6 @@ export default function ClientSignup() {
                       </motion.div>
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Must be at least 8 characters with 1 uppercase, 1 lowercase,
-                    1 number, and 1 special character
-                  </p>
                 </motion.div>
 
                 <motion.div

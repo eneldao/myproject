@@ -65,21 +65,7 @@ export default function FreelancerSignup() {
       return false;
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(
-        `Password must be at least ${MIN_PASSWORD_LENGTH} characters long`
-      );
-      return false;
-    }
-
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(password)) {
-      setError(
-        "Password must contain at least one uppercase letter, one lowercase letter, one number and one special character"
-      );
-      return false;
-    }
+    
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {

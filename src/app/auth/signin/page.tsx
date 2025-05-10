@@ -64,38 +64,60 @@ export default function SignIn() {
       },
     },
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      const response = await signin(email, password);
+      const result = await signin(email, password);
 
-      if (response.success) {
-        // Successful animation before redirect
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        router.push("/user");
+      if (result.success) {
+        // Keep loading state while we redirect
+        setLoading(true);
+
+        // Check redirect path if available
+        if (result.redirect) {
+          router.push(result.redirect);
+          return;
+        }
+
+        // Use userType to determine redirect
+        if (result.userType && result.userId) {
+          if (result.userType === "freelancer") {
+            router.push(`/freelancers/${result.userId}`);
+          } else if (result.userType === "client") {
+            router.push(`/clients/${result.userId}`);
+          } else {
+            router.push("/dashboard"); // fallback
+          }
+        } else {
+          // dashboard redirect if no specific info is available
+          router.push("/dashboard");
+        }
       } else {
-        setError("Invalid email or password");
+        setError(result.error?.message || "Invalid email or password");
+        setLoading(false);
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during sign in");
-    } finally {
       setLoading(false);
     }
   };
-
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminError("");
 
-    if (adminUsername === "admin" && adminPassword === "admin") {
-      // Successful admin login
-      router.push("/auth/adminPage");
-    } else {
-      setAdminError("Invalid admin credentials");
+    try {
+      // Keep simple admin credential check
+      if (adminUsername === "admin" && adminPassword === "admin") {
+        // Successful admin login
+        router.push("/auth/adminPage");
+      } else {
+        setAdminError("Invalid admin credentials");
+      }
+    } catch (err: any) {
+      setAdminError(err.message || "An error occurred during admin sign in");
     }
   };
 
@@ -206,7 +228,8 @@ export default function SignIn() {
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.2),transparent_1px)] bg-[length:20px_20px]"></div>
           </div>
-        </motion.div>{" "}
+        </motion.div>
+
         {/* Right Section - Sign In Form */}
         <div className="w-full lg:w-1/2 flex items-center justify-center px-4 sm:px-6 lg:px-8 relative">
           <motion.div
